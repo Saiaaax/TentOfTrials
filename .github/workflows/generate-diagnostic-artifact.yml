@@ -6,6 +6,9 @@ on:
       target_sha:
         description: Commit SHA to build diagnostics for
         required: true
+      target_ref:
+        description: Branch or ref containing the target SHA
+        required: true
 
 jobs:
   diagnostic:
@@ -16,7 +19,9 @@ jobs:
           fetch-depth: 0
 
       - name: Check out target commit
-        run: git checkout "${{ inputs.target_sha }}"
+        run: |
+          git fetch origin "${{ inputs.target_ref }}"
+          git checkout "${{ inputs.target_sha }}"
 
       - name: Install optional build tools
         run: |
