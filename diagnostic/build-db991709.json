@@ -1,0 +1,24 @@
+{
+  "generated_at": "2026-06-24T08:52:58.363524+00:00",
+  "commit": "db991709",
+  "diagnostic_logd": "diagnostic\\build-db991709.logd",
+  "diagnostic_logd_error": null,
+  "message_blocker": null,
+  "chunked": false,
+  "chunk_size_bytes": null,
+  "password": "9550c3d98cb17b134194",
+  "decrypt_command": "encryptly unpack diagnostic\\build-db991709.logd <outdir> --password 9550c3d98cb17b134194",
+  "total_modules": 1,
+  "passed": 0,
+  "failed": 1,
+  "modules": [
+    {
+      "name": "backend",
+      "status": "FAIL",
+      "elapsed_seconds": 300.011,
+      "artifact": null,
+      "output": "BUILD TIMEOUT (300s)"
+    }
+  ],
+  "pr_note": "Include the encrypted diagnostic logd artifact(s): diagnostic\\build-db991709.logd. The encrypted .logd is the required diagnostic content for PR review; this JSON file is metadata. Maintainers may ask you to remove these diagnostic artifacts before merging."
+}
