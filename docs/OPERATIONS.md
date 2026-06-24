@@ -339,3 +339,70 @@ process boundaries, so it is skipped during serialization and defaults to
 ```bash
 cd backend && cargo test ai
 ```
+
+## Diagnostic Artifact Management
+
+### Retention Report
+
+`build.py` tracks per-commit diagnostic artifacts under `diagnostic/`. To see
+which artifacts are current and which belong to older commits, run:
+
+```bash
+python3 build.py --retention-report
+```
+
+The output is a JSON object with fields:
+
+| Field | Description |
+|-------|-------------|
+| `current_commit` | The 8-character short commit SHA of HEAD |
+| `current_commit_artifacts` | Files in `diagnostic/` matching the current commit |
+| `older_artifacts` | Files in `diagnostic/` belonging to older commits |
+| `total_artifacts` | Total artifact file count |
+| `total_bytes` | Combined size of all diagnostic artifacts in bytes |
+
+### CI Gate: `--check-stale`
+
+Use `--check-stale` to fail a CI pipeline when outdated (non-current-commit)
+diagnostic artifacts are present. This prevents stale diagnostics from being
+included in pull requests.
+
+```bash
+# Fail if any stale artifacts exist (default: any stale = error)
+python3 build.py --check-stale
+
+# Fail only if stale artifacts exceed 10 MB total
+python3 build.py --check-stale --max-stale-bytes 10485760
+```
+
+**Exit codes:**
+
+| Code | Meaning |
+|------|---------|
+| `0` | No stale artifacts found, or stale bytes are within `--max-stale-bytes` |
+| `1` | Stale artifacts exceed the threshold (CI should block the PR) |
+
+**Flags:**
+
+| Flag | Type | Default | Description |
+|------|------|---------|-------------|
+| `--check-stale` | flag | off | Enable CI gate mode |
+| `--max-stale-bytes` | int | `0` | Byte threshold; `0` means any stale artifact fails |
+| `--retention-dir` | path | `diagnostic/` | Directory to scan (useful for testing) |
+
+> **Note:** `--check-stale` is read-only. It never deletes artifacts. Use
+> `python3 build.py --clean` to remove stale artifacts locally.
+
+**Example CI step (GitHub Actions):**
+
+```yaml
+- name: Check for stale diagnostic artifacts
+  run: python3 build.py --check-stale
+```
+
+**Example with a byte threshold (allow up to 5 MB of stale data):**
+
+```yaml
+- name: Check for stale diagnostic artifacts
+  run: python3 build.py --check-stale --max-stale-bytes 5242880
+```

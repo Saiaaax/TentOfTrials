@@ -853,6 +853,10 @@ Examples:
 
 Diagnostic bundle:
   python3 build.py
+
+CI Gate:
+  python3 build.py --check-stale
+  python3 build.py --check-stale --max-stale-bytes 5000000 --retention-dir /tmp/diagnostics
         """,
     )
     parser.add_argument(
