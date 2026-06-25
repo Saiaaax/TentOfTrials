@@ -422,6 +422,22 @@ export function setSampleRate(rate: number): void {
   state.config.sampleRate = Math.max(0, Math.min(1, rate));
 }
 
+export function __resetTelemetryForTests(): void {
+  if (import.meta.env.MODE !== 'test') {
+    throw new Error('__resetTelemetryForTests is only available in test mode');
+  }
+
+  stopFlushTimer();
+  state.events = [];
+  state.config = { ...DEFAULT_CONFIG };
+  state.isFlushing = false;
+  state.retryCount = 0;
+  state.totalEventsSent = 0;
+  state.totalEventsDropped = 0;
+  state.lastFlushTime = 0;
+  state.flushErrors = 0;
+}
+
 function enqueueEvent(event: TelemetryEvent): void {
   if (state.events.length >= MAX_EVENT_QUEUE_SIZE) {
     state.totalEventsDropped++;
