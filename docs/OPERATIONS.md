@@ -310,3 +310,99 @@ Audit logs are retained for 365 days and include:
 2. Update Kubernetes secret: `kubectl create secret tls tot-tls --cert=new.crt --key=new.key -n tent-production --dry-run=client -o yaml | kubectl apply -f -`
 3. Restart services: `kubectl rollout restart deployment -n tent-production`
 4. Verify new certificate: `openssl s_client -connect api.example.com:443 -servername api.example.com`
+
+## AI Orchestrator Node State Serialization
+
+The `CognitiveNodeState` struct in `backend/src/ai/mod.rs` is now
+serializable to JSON via `serde`, enabling dashboard API responses and
+wire transmission.
+
+### Serialization Behavior
+
+| Field | Serialized? | Deserialization Default |
+|-------|-------------|------------------------|
+| `node_id` | Yes | Required |
+| `load_factor` | Yes | Required |
+| `failure_probability` | Yes | Required |
+| `ewma_latency_ms` | Yes | Required |
+| `active_connections` | Yes | Required |
+| `vibe_score` | Yes | Required |
+| `behavioral_fingerprint` | Yes | Required (any length) |
+| `last_seen` | **No** (`#[serde(skip)]`) | `Instant::now()` |
+
+The `last_seen` field (`std::time::Instant`) cannot be serialized across
+process boundaries, so it is skipped during serialization and defaults to
+`Instant::now()` on deserialization.
+
+### Running the Tests
+
+```bash
+cd backend && cargo test ai
+```
+
+## Diagnostic Artifact Management
+
+### Retention Report
+
+`build.py` tracks per-commit diagnostic artifacts under `diagnostic/`. To see
+which artifacts are current and which belong to older commits, run:
+
+```bash
+python3 build.py --retention-report
+```
+
+The output is a JSON object with fields:
+
+| Field | Description |
+|-------|-------------|
+| `current_commit` | The 8-character short commit SHA of HEAD |
+| `current_commit_artifacts` | Files in `diagnostic/` matching the current commit |
+| `older_artifacts` | Files in `diagnostic/` belonging to older commits |
+| `total_artifacts` | Total artifact file count |
+| `total_bytes` | Combined size of all diagnostic artifacts in bytes |
+
+### CI Gate: `--check-stale`
+
+Use `--check-stale` to fail a CI pipeline when outdated (non-current-commit)
+diagnostic artifacts are present. This prevents stale diagnostics from being
+included in pull requests.
+
+```bash
+# Fail if any stale artifacts exist (default: any stale = error)
+python3 build.py --check-stale
+
+# Fail only if stale artifacts exceed 10 MB total
+python3 build.py --check-stale --max-stale-bytes 10485760
+```
+
+**Exit codes:**
+
+| Code | Meaning |
+|------|---------|
+| `0` | No stale artifacts found, or stale bytes are within `--max-stale-bytes` |
+| `1` | Stale artifacts exceed the threshold (CI should block the PR) |
+
+**Flags:**
+
+| Flag | Type | Default | Description |
+|------|------|---------|-------------|
+| `--check-stale` | flag | off | Enable CI gate mode |
+| `--max-stale-bytes` | int | `0` | Byte threshold; `0` means any stale artifact fails |
+| `--retention-dir` | path | `diagnostic/` | Directory to scan (useful for testing) |
+
+> **Note:** `--check-stale` is read-only. It never deletes artifacts. Use
+> `python3 build.py --clean` to remove stale artifacts locally.
+
+**Example CI step (GitHub Actions):**
+
+```yaml
+- name: Check for stale diagnostic artifacts
+  run: python3 build.py --check-stale
+```
+
+**Example with a byte threshold (allow up to 5 MB of stale data):**
+
+```yaml
+- name: Check for stale diagnostic artifacts
+  run: python3 build.py --check-stale --max-stale-bytes 5242880
+```
