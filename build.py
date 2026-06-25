@@ -600,6 +600,43 @@ def print_summary(results: list[tuple[str, bool, float, str, Optional[str]]]):
           f"{color(str(failed) + ' failed', Colors.RED)}, "
           f"{total_time:.1f}s total")
 
+# ---------------------------------------------------------------------------
+# STALE ARTIFACT CHECK
+# ---------------------------------------------------------------------------
+
+def check_stale_artifacts(max_stale_bytes: int = 0) -> tuple[bool, str]:
+    """Check for stale diagnostic artifacts.
+    
+    Args:
+        max_stale_bytes: Maximum allowed stale bytes (0 = any stale is error)
+    
+    Returns:
+        Tuple of (is_clean, message)
+    """
+    commit_id = current_commit_id()
+    current_pattern = f"build-{commit_id}"
+    
+    if not DIAGNOSTIC_DIR.exists():
+        return True, "No diagnostic directory"
+    
+    stale_files = []
+    total_stale_bytes = 0
+    
+    for artifact in DIAGNOSTIC_DIR.glob("build-*"):
+        if current_pattern not in artifact.name:
+            stale_files.append(artifact)
+            total_stale_bytes += artifact.stat().st_size
+    
+    if not stale_files:
+        return True, "No stale artifacts"
+    
+    if max_stale_bytes > 0 and total_stale_bytes <= max_stale_bytes:
+        return True, f"Stale artifacts within threshold ({total_stale_bytes}/{max_stale_bytes} bytes)"
+    
+    files_list = "\n".join(f"  - {f.name} ({f.stat().st_size} bytes)" for f in stale_files)
+    return False, f"Found {len(stale_files)} stale artifacts ({total_stale_bytes} bytes):\n{files_list}"
+
+
 def main():
     parser = argparse.ArgumentParser(
         description="Tent of Trials  -  Multi-Language Build System",
