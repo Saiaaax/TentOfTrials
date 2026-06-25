@@ -1,0 +1,5 @@
+2024-01-15 10:00:01 [INFO] [Backend] Server started on port 8080
+2024-01-15 10:00:02 [INFO] [Backend] Database connection pool initialized
+2024-01-15 10:00:03 [INFO] [Backend] Health check endpoint registered
+2024-01-15 10:01:00 [INFO] [Backend] Request processed in 45ms
+2024-01-15 10:02:00 [INFO] [Market] Ticker update received for BTC-USD

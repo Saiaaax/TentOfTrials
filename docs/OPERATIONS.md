@@ -310,3 +310,25 @@ Audit logs are retained for 365 days and include:
 2. Update Kubernetes secret: `kubectl create secret tls tot-tls --cert=new.crt --key=new.key -n tent-production --dry-run=client -o yaml | kubectl apply -f -`
 3. Restart services: `kubectl rollout restart deployment -n tent-production`
 4. Verify new certificate: `openssl s_client -connect api.example.com:443 -servername api.example.com`
+
+## Log Watchdog Exit Code Contract
+
+The `v2/scripts/log_watchdog.pl` script now has a defined exit code contract
+and supports a `--scan` mode for one-shot pattern scanning and a `--no-fail`
+flag that always exits 0 (useful for CI pipelines that should not fail on
+warnings but still want to log them).
+
+### Exit Codes
+
+| Code | Condition |
+|------|-----------|
+| 0 | No errors found (clean log or `--no-fail` flag) |
+| 1 | Errors detected in log |
+| 2 | Invalid arguments or usage error |
+
+### New Options
+
+| Flag | Description |
+|------|-------------|
+| `--scan` | One-shot scan mode: scan file and exit (no tailing) |
+| `--no-fail` | Always exit 0 regardless of findings |

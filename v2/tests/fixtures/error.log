@@ -1,0 +1,5 @@
+2024-01-15 10:00:01 [INFO] [Backend] Server started on port 8080
+2024-01-15 10:01:00 [WARN] [Backend] Connection refused by upstream service
+2024-01-15 10:02:00 [ERROR] [Backend] NullPointerException in order processor
+2024-01-15 10:02:01 [ERROR] [Backend] Segmentation fault (SIGSEGV) in native module
+2024-01-15 10:03:00 [CRITICAL] [Backend] FATAL: OutOfMemory error detected

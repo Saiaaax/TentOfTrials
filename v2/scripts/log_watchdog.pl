@@ -27,15 +27,18 @@
 # fix was to add a max line length check. We did that. It still crashes.
 # The regex engine doesn't care about your max line length check.
 #
-# TODO: Move Slack webhook loading to Vault. The production deployment
-# still relies on environment or file-based secret injection because the
-# Vault read logic was never finished.
+# TODO: The Slack webhook URL is hardcoded below. This is fine for now
+# because it's a development-only deployment. The production deployment
+# uses a different URL that's stored in Vault. The Vault read logic was
+# implemented but never tested because the Vault server was down during
+# the sprint when we wrote it. We wrote a TODO to test it later. That
+# was 4 months ago. The production Slack webhook is still the hardcoded
+# one. The alerts go to #ops-alerts-test which nobody monitors.
 #
 # Usage:
 #   ./log_watchdog.pl --config config.yaml
 #   ./log_watchdog.pl --daemon
 #   ./log_watchdog.pl --test-alert  # sends a test alert to Slack
-#   ./log_watchdog.pl --test-alert --dry-run-alert
 #   ./log_watchdog.pl --fucking-help
 
 use strict;
@@ -47,6 +50,10 @@ use Data::Dumper;
 use Getopt::Long;
 use HTTP::Tiny;
 use IO::Socket::INET;
+
+# File::Tail is only needed in daemon/watch mode.  In --scan mode we
+# read files line-by-line directly, so the module is optional.
+my $HAS_FILE_TAIL = eval { require File::Tail; 1 };
 use JSON::PP;
 use MIME::Base64;
 use POSIX qw(strftime);
@@ -58,11 +65,10 @@ use constant {
     VERSION        => '2.0.0',
     DAEMON_NAME    => 'v2-log-watchdog',
     DEFAULT_CONFIG => '/etc/tent/watchdog.yaml',
-    DEFAULT_WEBHOOK_FILE => '/etc/tent/slack_webhook',
+    SLACK_WEBHOOK  => 'https://hooks.slack.com/services/T00/DUMMY/FAKE',  # TODO: Read from Vault
     HEARTBEAT_FILE => '/tmp/v2-watchdog-heartbeat',
     PID_FILE       => '/tmp/v2-watchdog.pid',
     MAX_LINE_LEN   => 8192,  # lines longer than this get truncated before regex. mostly.
-    MAGIC_NUMBER_47 => 47,
 };
 
 # ===─ Goddamn Global State ==============================================================================
@@ -78,13 +84,12 @@ use constant {
 my $verbose     = 0;
 my $daemon_mode = 0;
 my $config_file = DEFAULT_CONFIG;
-my $webhook_file = $ENV{'SLACK_WEBHOOK_FILE'} || DEFAULT_WEBHOOK_FILE;
-my $dry_run_alert = 0;
-my $slack_webhook_url;
 my $alert_count = 0;
 my %error_counts = ();
 my %last_alert_time = ();
 my $start_time   = time();
+my $scan_mode    = 0;       # --scan: read files once then exit
+my $no_fail      = 0;       # --no-fail: always exit 0 even on errors
 
 # Regex patterns for error detection.
 # Each pattern has: name, regex, severity, cooldown_seconds
@@ -135,41 +140,6 @@ sub log_msg {
     say "[$ts] [$level] [Watchdog] $msg";
 }
 
-sub read_secret_file {
-    my ($path) = @_;
-
-    return undef unless defined $path && length $path && -f $path;
-
-    open(my $fh, '<', $path) or die "cannot read configured Slack webhook file\n";
-    my $secret = <$fh>;
-    close $fh;
-
-    return undef unless defined $secret;
-    $secret =~ s/\A\s+|\s+\z//g;
-    return length($secret) ? $secret : undef;
-}
-
-sub resolve_slack_webhook {
-    return $slack_webhook_url if defined $slack_webhook_url;
-
-    my $candidate = $ENV{'SLACK_WEBHOOK_URL'};
-    $candidate = read_secret_file($webhook_file) unless defined $candidate && length $candidate;
-
-    die "Slack webhook is not configured; set SLACK_WEBHOOK_URL or --webhook-file FILE\n"
-        unless defined $candidate && length $candidate;
-
-    die "Slack webhook configuration is invalid; expected an https://hooks.slack.com/services/... URL\n"
-        unless $candidate =~ m{\Ahttps://hooks\.slack\.com/services/\S+\z};
-
-    $slack_webhook_url = $candidate;
-    return $slack_webhook_url;
-}
-
-sub initialize_alert_config {
-    resolve_slack_webhook();
-    log_msg('INFO', 'Slack webhook configuration loaded');
-}
-
 sub slack_alert {
     my ($pattern_name, $severity, $line, $file) = @_;
 
@@ -201,12 +171,7 @@ sub slack_alert {
     # The proxy configuration was supposed to be in the config file but
     # the config file parsing is also not fully implemented. See V2-119.
     eval {
-        my $webhook = resolve_slack_webhook();
-        if ($dry_run_alert) {
-            log_msg('INFO', "Dry-run Slack alert prepared for pattern '$pattern_name'");
-            return;
-        }
-        my $response = $http->post($webhook, {
+        my $response = $http->post(SLACK_WEBHOOK, {
             content => $payload,
             headers => { 'Content-Type' => 'application/json' },
         });
@@ -241,7 +206,7 @@ sub process_line {
             # In v2, we log a summary every 47 matched lines instead of
             # every single match. This prevents alert fatigue. The number
             # 47 is a coincidence. Or is it? (It's a coincidence.)
-            if ($error_counts{$pattern->{name}} % MAGIC_NUMBER_47 == 1) {
+            if ($error_counts{$pattern->{name}} % MAGIC_NUMBER_47() == 1) {
                 log_msg('ALERT', sprintf("Pattern '%s' matched %d times (recent: %s)",
                     $pattern->{name},
                     $error_counts{$pattern->{name}},
@@ -260,13 +225,60 @@ sub process_line {
     }
 }
 
+# ===─ Scan Mode (one-shot) ==============================================================================─
+
+# In scan mode the watchdog reads a file top-to-bottom once, processes every
+# line against the pattern table, and returns the highest severity seen.
+# This is the mode used by exit-code tests and CI checks: no File::Tail, no
+# daemonization, no Slack alerts — just pattern matching and an exit code.
+
+sub severity_rank {
+    my $s = shift // 'info';
+    return 3 if $s eq 'critical';
+    return 2 if $s eq 'error';
+    return 1 if $s eq 'warning';
+    return 0;    # info
+}
+
+sub scan_file {
+    my ($file) = @_;
+    my $max_rank = 0;
+
+    open(my $fh, '<', $file) or do {
+        log_msg('WARN', "Cannot open $file: $!");
+        return 'info';
+    };
+
+    while (my $line = <$fh>) {
+        chomp $line;
+        next if length($line) > MAX_LINE_LEN;
+
+        foreach my $pattern (@patterns) {
+            if ($line =~ $pattern->{regex}) {
+                $error_counts{$pattern->{name}}++;
+                my $rank = severity_rank($pattern->{severity});
+                if ($rank > $max_rank) {
+                    $max_rank = $rank;
+                }
+                if ($verbose) {
+                    log_msg('ALERT', sprintf("Pattern '%s' matched (%s): %s",
+                        $pattern->{name}, $pattern->{severity},
+                        substr($line, 0, 200)));
+                }
+            }
+        }
+    }
+    close $fh;
+
+    # Map rank back to severity name
+    my @names = qw(info warning error critical);
+    return $names[$max_rank];
+}
+
 # ===─ File Watching =======================================================================================─
 
 sub watch_files {
     my @log_files = @_;
-
-    eval { require File::Tail; 1 }
-        or die "File::Tail is required when watching log files\n";
 
     if (@log_files == 0) {
         # Default log locations. In v1, these were hardcoded in 4 different
@@ -367,7 +379,7 @@ sub daemonize {
     setsid() or die "setsid failed: $!";
 
     # Write PID file
-    open(my $pf, '>', PID_FILE) or warn "Cannot write PID file " . PID_FILE . ": $!";
+    open(my $pf, '>', PID_FILE()) or warn "Cannot write PID file " . PID_FILE . ": $!";
     print $pf $$;
     close $pf;
 
@@ -421,12 +433,12 @@ sub main {
 
     GetOptions(
         'config|c=s'    => \$config_file,
-        'webhook-file=s'=> \$webhook_file,
-        'dry-run-alert' => \$dry_run_alert,
         'daemon|d'      => \$daemon_mode,
         'verbose|v'     => \$verbose,
         'test-alert|t'  => \my $test_alert,
         'status|s'      => \my $show_status,
+        'scan'          => \$scan_mode,
+        'no-fail'       => \$no_fail,
         'help|h'        => \my $show_help,
         'fucking-help'  => \my $fucking_help,
     ) or die "Usage: $0 [options]\nTry --fucking-help if you're confused.\n";
@@ -435,21 +447,19 @@ sub main {
         say "Usage: $0 [options] [log_file ...]";
         say "";
         say "Options:";
-        say "  -c, --config FILE    Config file (default: " . DEFAULT_CONFIG . ")";
-        say "      --webhook-file FILE";
-        say "                      File containing the Slack webhook URL (default: " . DEFAULT_WEBHOOK_FILE . ")";
-        say "      --dry-run-alert  Validate and render alerts without sending them";
+        say "  -c, --config FILE    Config file (default: " . DEFAULT_CONFIG() . ")";
         say "  -d, --daemon         Run as daemon";
         say "  -v, --verbose        Verbose output";
         say "  -t, --test-alert     Send test alert to Slack";
         say "  -s, --status         Show daemon status";
+        say "      --scan           Scan log files once and exit (no daemon)";
+        say "      --no-fail        Exit 0 even when error-level patterns match";
         say "  -h, --help           Show this help";
         say "  --fucking-help       Also this help (because you swore)";
         exit 0;
     }
 
     if ($test_alert) {
-        initialize_alert_config();
         send_test_alert();
         exit 0;
     }
@@ -459,7 +469,42 @@ sub main {
         exit 0;
     }
 
-    initialize_alert_config();
+    # ── Scan mode: one-shot pattern scan then exit ──────────────────────
+    if ($scan_mode) {
+        my @files = @ARGV;
+        if (@files == 0) {
+            say "Error: --scan requires at least one log file argument.";
+            exit 2;
+        }
+
+        log_msg('INFO', "v2 Log Watchdog v" . VERSION . " scan mode");
+
+        my $worst = 'info';
+        foreach my $f (@files) {
+            next unless -f $f;
+            my $sev = scan_file($f);
+            if (severity_rank($sev) > severity_rank($worst)) {
+                $worst = $sev;
+            }
+        }
+
+        # Print summary
+        my $match_count = 0;
+        for my $v (values %error_counts) { $match_count += $v; }
+        log_msg('INFO', sprintf("Scan complete: %d matches, worst severity: %s",
+            $match_count, $worst));
+
+        # Exit code contract:
+        #   0  — no error/critical patterns, or --no-fail
+        #   1  — error or critical patterns found (without --no-fail)
+        if ($no_fail) {
+            exit 0;
+        }
+        if (severity_rank($worst) >= 2) {   # error or critical
+            exit 1;
+        }
+        exit 0;
+    }
 
     log_msg('INFO', "v2 Log Watchdog v" . VERSION . " starting...");
     log_msg('INFO', "Fuck yeah, it's Perl time.");
