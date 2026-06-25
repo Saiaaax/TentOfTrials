@@ -15,6 +15,12 @@
 
 ## Monitoring
 
+### Frontend Telemetry Batch Flush
+
+The frontend telemetry client queues events locally and sends them to the configured endpoint with the browser Beacon API when available. The default batch size is 100 events. Events below that threshold remain queued until a forced flush path runs, such as `beforeunload`, `visibilitychange` to `hidden`, the periodic flush timer, or an explicit `forceFlush()` call.
+
+The telemetry batch tests cover the operationally important cases for this behavior: the 100-event threshold triggers a send, page unload flushes queued events without an external service, partial batches below the threshold remain queued, and a successful flush clears the queue while resetting retry/error state.
+
 ### Health Check Endpoints
 
 Each service exposes a health check endpoint:
