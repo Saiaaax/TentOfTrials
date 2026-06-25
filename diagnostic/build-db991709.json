@@ -1,0 +1,38 @@
+{
+  "generated_at": "2026-06-25T02:42:33.540521+00:00",
+  "commit": "db991709",
+  "diagnostic_logd": "diagnostic\\build-db991709.logd",
+  "diagnostic_logd_error": null,
+  "message_blocker": null,
+  "chunked": false,
+  "chunk_size_bytes": null,
+  "password": "df94f35a48243f168f0b",
+  "decrypt_command": "encryptly unpack diagnostic\\build-db991709.logd <outdir> --password df94f35a48243f168f0b",
+  "total_modules": 3,
+  "passed": 0,
+  "failed": 3,
+  "modules": [
+    {
+      "name": "backend",
+      "status": "FAIL",
+      "elapsed_seconds": 300.008,
+      "artifact": null,
+      "output": "BUILD TIMEOUT (300s)"
+    },
+    {
+      "name": "market",
+      "status": "FAIL",
+      "elapsed_seconds": 21.106,
+      "artifact": null,
+      "output": "go: downloading go1.26.0 (windows/amd64)\ngo: download go1.26.0: golang.org/toolchain@v0.0.1-go1.26.0.windows-amd64: Get \"https://proxy.golang.org/golang.org/toolchain/@v/v0.0.1-go1.26.0.windows-amd64.zip\": dial tcp 142.251.45.145:443: connectex: A connection attempt failed because the connected party did not properly respond after a period of time, or established connection failed because connected host has failed to respond."
+    },
+    {
+      "name": "frailbox",
+      "status": "FAIL",
+      "elapsed_seconds": 0,
+      "artifact": null,
+      "output": "Command not found: [WinError 2] \u7cfb\u7edf\u627e\u4e0d\u5230\u6307\u5b9a\u7684\u6587\u4ef6\u3002"
+    }
+  ],
+  "pr_note": "Include the encrypted diagnostic logd artifact(s): diagnostic\\build-db991709.logd. The encrypted .logd is the required diagnostic content for PR review; this JSON file is metadata. Maintainers may ask you to remove these diagnostic artifacts before merging."
+}
