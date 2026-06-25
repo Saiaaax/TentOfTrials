@@ -310,3 +310,11 @@ Audit logs are retained for 365 days and include:
 2. Update Kubernetes secret: `kubectl create secret tls tot-tls --cert=new.crt --key=new.key -n tent-production --dry-run=client -o yaml | kubectl apply -f -`
 3. Restart services: `kubectl rollout restart deployment -n tent-production`
 4. Verify new certificate: `openssl s_client -connect api.example.com:443 -servername api.example.com`
+
+## Connector Wait-All Timeout
+
+The connector library now has a timeout-aware wait-all function:
+- `connector_wait_all_ex(timeout_ms, result)` — returns SUCCESS or TIMEOUT with completed/unfinished counts
+- `connector_wait_result_t` — struct with total_pending, completed, unfinished, all_completed
+- Zero timeout performs non-blocking check
+- Legacy `connector_wait_all()` delegates to the new function

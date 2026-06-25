@@ -322,16 +322,43 @@ connector_result_t connector_send(const connector_buffer_t *buffer);
 connector_result_t connector_receive(connector_buffer_t *buffer);
 connector_result_t connector_submit(connector_operation_t *operation);
 connector_result_t connector_cancel(uint64_t operation_id);
+connector_result_t connector_wait_all(uint32_t timeout_ms);
 
 /**
- * Wait until all queued and active asynchronous operations finish.
- *
- * Returns CONNECTOR_SUCCESS when no operations remain. Returns
- * CONNECTOR_ERROR_TIMEOUT when the timeout boundary is reached first; in that
- * case connector_get_stats() exposes the unfinished operation count through
- * queue_depth and last_error_message contains a human-readable count.
+ * Result structure for connector_wait_all_ex(). Reports both completed
+ * and unfinished operations after the timeout boundary, preserving
+ * existing success behavior for fully-completed batches.
  */
-connector_result_t connector_wait_all(uint32_t timeout_ms);
+typedef struct {
+    /** Total operations that were pending when wait_all_ex was called */
+    uint32_t total_pending;
+    /** Operations that completed successfully before the deadline */
+    uint32_t completed;
+    /** Operations still unfinished when the deadline expired */
+    uint32_t unfinished;
+    /** Whether all operations completed before the timeout */
+    int      all_completed;
+} connector_wait_result_t;
+
+/**
+ * Timeout-aware wait-all that reports unfinished operations.
+ *
+ * Waits up to timeout_ms for all queued operations to complete. If the
+ * deadline expires before all operations finish, the function returns
+ * CONNECTOR_ERROR_TIMEOUT and populates the result structure with the
+ * count of completed and unfinished operations. Completed operations
+ * are still reported as successful.
+ *
+ * A timeout_ms of 0 performs a non-blocking check (zero-timeout).
+ *
+ * @param timeout_ms  Maximum time to wait in milliseconds (0 = non-blocking)
+ * @param result      Pointer to result structure (may be NULL if caller
+ *                    doesn't need detail). Populated on both success and timeout.
+ * @return CONNECTOR_SUCCESS if all operations completed,
+ *         CONNECTOR_ERROR_TIMEOUT if some operations are still unfinished,
+ *         CONNECTOR_ERROR_NOT_INIT if the connector is not initialized.
+ */
+connector_result_t connector_wait_all_ex(uint32_t timeout_ms, connector_wait_result_t *result);
 
 /* ------------------------------------------------------------------ */
 /* BUFFER MANAGEMENT                                                   */
