@@ -1,0 +1,24 @@
+{
+  "generated_at": "2026-06-25T03:04:42.769357+00:00",
+  "commit": "db991709",
+  "diagnostic_logd": "diagnostic\\build-db991709.logd",
+  "diagnostic_logd_error": null,
+  "message_blocker": null,
+  "chunked": false,
+  "chunk_size_bytes": null,
+  "password": "60ca2f196e24c7a0afba",
+  "decrypt_command": "encryptly unpack diagnostic\\build-db991709.logd <outdir> --password 60ca2f196e24c7a0afba",
+  "total_modules": 1,
+  "passed": 0,
+  "failed": 1,
+  "modules": [
+    {
+      "name": "frailbox",
+      "status": "FAIL",
+      "elapsed_seconds": 0,
+      "artifact": null,
+      "output": "Command not found: [WinError 2] \u7cfb\u7edf\u627e\u4e0d\u5230\u6307\u5b9a\u7684\u6587\u4ef6\u3002"
+    }
+  ],
+  "pr_note": "Include the encrypted diagnostic logd artifact(s): diagnostic\\build-db991709.logd. The encrypted .logd is the required diagnostic content for PR review; this JSON file is metadata. Maintainers may ask you to remove these diagnostic artifacts before merging."
+}
