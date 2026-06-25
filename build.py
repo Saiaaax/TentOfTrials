@@ -783,6 +783,32 @@ def generate_logd(
         shutil.rmtree(workspace, ignore_errors=True)
 
 
+def retention_report(diagnostic_dir: Path) -> dict:
+    commit_id = current_commit_id()
+    current_artifacts: list[str] = []
+    older_artifacts: list[str] = []
+    total_bytes = 0
+    if diagnostic_dir.exists():
+        for entry in sorted(diagnostic_dir.iterdir()):
+            if not entry.is_file():
+                continue
+            name = entry.name
+            if name.startswith("build-") and (name.endswith(".logd") or name.endswith(".json")):
+                size = entry.stat().st_size
+                total_bytes += size
+                if commit_id != "00000000" and f"build-{commit_id}" in name:
+                    current_artifacts.append(name)
+                else:
+                    older_artifacts.append(name)
+    return {
+        "current_commit": commit_id if commit_id != "00000000" else "unknown",
+        "current_commit_artifacts": current_artifacts,
+        "older_artifacts": older_artifacts,
+        "total_artifacts": len(current_artifacts) + len(older_artifacts),
+        "total_bytes": total_bytes,
+    }
+
+
 def print_summary(results: list[tuple[str, bool, float, str, Optional[str]]]):
     print(f"  {color('Build Summary', Colors.BOLD)}")
 
@@ -850,8 +876,50 @@ Diagnostic bundle:
         "--list", action="store_true",
         help="List available modules and exit",
     )
+    parser.add_argument(
+        "--check-stale", action="store_true",
+        help="Exit 1 if stale (non-current-commit) diagnostic artifacts exist (CI gate)",
+    )
+    parser.add_argument(
+        "--max-stale-bytes", type=int, default=0,
+        help="Max total bytes of stale artifacts before failing (0 = any stale fails, for --check-stale)",
+    )
+    parser.add_argument(
+        "--retention-dir",
+        help="Directory to scan for diagnostic artifacts",
+        default=None,
+    )
+    parser.add_argument(
+        "--retention-report", action="store_true",
+        help="Print JSON diagnostic artifact retention summary and exit",
+    )
 
     args = parser.parse_args()
+
+    if args.retention_report:
+        report_dir = Path(args.retention_dir) if args.retention_dir else DIAGNOSTIC_DIR
+        report = retention_report(report_dir)
+        print(json.dumps(report, indent=2))
+        return 0
+
+    if args.check_stale:
+        report_dir = Path(args.retention_dir) if getattr(args, "retention_dir", None) else DIAGNOSTIC_DIR
+        report = retention_report(report_dir)
+        stale_bytes = 0
+        for name in report["older_artifacts"]:
+            p = report_dir / name
+            if p.exists():
+                stale_bytes += p.stat().st_size
+        if report["older_artifacts"]:
+            if args.max_stale_bytes > 0 and stale_bytes <= args.max_stale_bytes:
+                print(f"Stale artifacts: {len(report['older_artifacts'])} files, {stale_bytes} bytes (within threshold)")
+                return 0
+            print(f"Stale artifacts found: {len(report['older_artifacts'])} files, {stale_bytes} bytes")
+            for name in report["older_artifacts"]:
+                print(f"  {name}")
+            return 1
+        print("No stale artifacts found.")
+        return 0
 
     print(f"\n  {color('Tent of Trials: building', Colors.CYAN)}")
     print(f"  Working directory: {ROOT}")

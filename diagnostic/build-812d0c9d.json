@@ -1,0 +1,24 @@
+{
+  "generated_at": "2026-06-24T14:09:53.732020+00:00",
+  "commit": "812d0c9d",
+  "diagnostic_logd": "diagnostic\\build-812d0c9d.logd",
+  "diagnostic_logd_error": null,
+  "message_blocker": null,
+  "chunked": false,
+  "chunk_size_bytes": null,
+  "password": "a02d534740a2248c2b35",
+  "decrypt_command": "encryptly unpack diagnostic\\build-812d0c9d.logd <outdir> --password a02d534740a2248c2b35",
+  "total_modules": 1,
+  "passed": 0,
+  "failed": 1,
+  "modules": [
+    {
+      "name": "v2-market-stream",
+      "status": "FAIL",
+      "elapsed_seconds": 0,
+      "artifact": null,
+      "output": "Command not found: [WinError 2] \u7cfb\u7edf\u627e\u4e0d\u5230\u6307\u5b9a\u7684\u6587\u4ef6\u3002"
+    }
+  ],
+  "pr_note": "Include the encrypted diagnostic logd artifact(s): diagnostic\\build-812d0c9d.logd. The encrypted .logd is the required diagnostic content for PR review; this JSON file is metadata. Maintainers may ask you to remove these diagnostic artifacts before merging."
+}

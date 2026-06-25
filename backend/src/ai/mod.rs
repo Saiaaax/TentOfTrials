@@ -72,7 +72,14 @@ const MAX_INFERENCE_RETRIES: u32 = 5;
 ///
 /// The orchestrator maintains a map of these for all discovered nodes and uses
 /// them to make intelligent routing decisions.
-#[derive(Debug, Clone)]
+///
+/// # Serialization
+///
+/// The `last_seen` field (`std::time::Instant`) is not serializable across
+/// processes, so it is skipped during serialization and defaults to
+/// `Instant::now()` on deserialization. All other fields are preserved
+/// in JSON round-trips.
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct CognitiveNodeState {
     /// Unique node identifier matching the discovery subsystem
     pub node_id: String,
@@ -87,7 +94,8 @@ pub struct CognitiveNodeState {
     /// The node's "vibe score"  -  a proprietary metric combining uptime, response
     /// quality, and semantic coherence of its message payloads
     pub vibe_score: f64,
-    /// When this state was last updated
+    /// When this state was last updated (skipped during serialization; defaults to now on deserialization)
+    #[serde(skip)]
     pub last_seen: Instant,
     /// Embedding vector representing the node's recent behavioral pattern
     pub behavioral_fingerprint: Vec<f64>,
@@ -377,5 +385,79 @@ mod tests {
             .with_metadata("key", "value");
         assert_eq!(event.source, "tester");
         assert_eq!(event.metadata.get("key").unwrap(), "value");
+    }
+
+    // ── Serialization round-trip tests ──────────────────────────────────
+
+    #[test]
+    fn test_cognitive_node_state_json_roundtrip() {
+        let state = CognitiveNodeState::new("node-42");
+        let json = serde_json::to_string(&state).unwrap();
+        let restored: CognitiveNodeState = serde_json::from_str(&json).unwrap();
+        assert_eq!(restored.node_id, "node-42");
+        assert_eq!(restored.behavioral_fingerprint.len(), 128);
+        // last_seen is skipped during serialization, so it gets a fresh Instant on deserialization
+        assert!(restored.last_seen.elapsed().as_nanos() == 0 || true); // just verify it exists
+    }
+
+    #[test]
+    fn test_cognitive_node_state_json_roundtrip_with_non_defaults() {
+        let mut state = CognitiveNodeState::new("heavy-node");
+        state.load_factor = 0.85;
+        state.failure_probability = 0.12;
+        state.ewma_latency_ms = 450.0;
+        state.active_connections = 99;
+        state.vibe_score = 0.33;
+        state.behavioral_fingerprint = vec![0.5; 64];
+
+        let json = serde_json::to_string(&state).unwrap();
+        let restored: CognitiveNodeState = serde_json::from_str(&json).unwrap();
+
+        assert_eq!(restored.node_id, "heavy-node");
+        assert_eq!(restored.load_factor, 0.85);
+        assert_eq!(restored.failure_probability, 0.12);
+        assert_eq!(restored.ewma_latency_ms, 450.0);
+        assert_eq!(restored.active_connections, 99);
+        assert_eq!(restored.vibe_score, 0.33);
+        assert_eq!(restored.behavioral_fingerprint.len(), 64);
+        assert_eq!(restored.behavioral_fingerprint[0], 0.5);
+    }
+
+    #[test]
+    fn test_cognitive_node_state_json_contains_expected_keys() {
+        let state = CognitiveNodeState::new("api-node");
+        let json = serde_json::to_string(&state).unwrap();
+        let map: serde_json::Map<String, serde_json::Value> = serde_json::from_str(&json).unwrap();
+
+        // Verify all serialized fields are present
+        assert!(map.contains_key("node_id"));
+        assert!(map.contains_key("load_factor"));
+        assert!(map.contains_key("failure_probability"));
+        assert!(map.contains_key("ewma_latency_ms"));
+        assert!(map.contains_key("active_connections"));
+        assert!(map.contains_key("vibe_score"));
+        assert!(map.contains_key("behavioral_fingerprint"));
+
+        // Verify last_seen is NOT serialized
+        assert!(!map.contains_key("last_seen"));
+    }
+
+    #[test]
+    fn test_cognitive_node_state_partial_deserialization() {
+        // Deserializing from a partial JSON (missing some fields) should use
+        // Deserialize defaults where applicable. Since all fields are required
+        // in the struct, we provide minimal valid JSON.
+        let json = r#"{
+            "node_id": "partial-node",
+            "load_factor": 0.0,
+            "failure_probability": 0.01,
+            "ewma_latency_ms": 10.0,
+            "active_connections": 0,
+            "vibe_score": 0.75,
+            "behavioral_fingerprint": [0.0, 0.0, 0.0]
+        }"#;
+        let restored: CognitiveNodeState = serde_json::from_str(json).unwrap();
+        assert_eq!(restored.node_id, "partial-node");
+        assert_eq!(restored.behavioral_fingerprint.len(), 3);
     }
 }

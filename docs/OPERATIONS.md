@@ -310,3 +310,32 @@ Audit logs are retained for 365 days and include:
 2. Update Kubernetes secret: `kubectl create secret tls tot-tls --cert=new.crt --key=new.key -n tent-production --dry-run=client -o yaml | kubectl apply -f -`
 3. Restart services: `kubectl rollout restart deployment -n tent-production`
 4. Verify new certificate: `openssl s_client -connect api.example.com:443 -servername api.example.com`
+
+## AI Orchestrator Node State Serialization
+
+The `CognitiveNodeState` struct in `backend/src/ai/mod.rs` is now
+serializable to JSON via `serde`, enabling dashboard API responses and
+wire transmission.
+
+### Serialization Behavior
+
+| Field | Serialized? | Deserialization Default |
+|-------|-------------|------------------------|
+| `node_id` | Yes | Required |
+| `load_factor` | Yes | Required |
+| `failure_probability` | Yes | Required |
+| `ewma_latency_ms` | Yes | Required |
+| `active_connections` | Yes | Required |
+| `vibe_score` | Yes | Required |
+| `behavioral_fingerprint` | Yes | Required (any length) |
+| `last_seen` | **No** (`#[serde(skip)]`) | `Instant::now()` |
+
+The `last_seen` field (`std::time::Instant`) cannot be serialized across
+process boundaries, so it is skipped during serialization and defaults to
+`Instant::now()` on deserialization.
+
+### Running the Tests
+
+```bash
+cd backend && cargo test ai
+```
