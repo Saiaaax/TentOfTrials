@@ -310,3 +310,22 @@ Audit logs are retained for 365 days and include:
 2. Update Kubernetes secret: `kubectl create secret tls tot-tls --cert=new.crt --key=new.key -n tent-production --dry-run=client -o yaml | kubectl apply -f -`
 3. Restart services: `kubectl rollout restart deployment -n tent-production`
 4. Verify new certificate: `openssl s_client -connect api.example.com:443 -servername api.example.com`
+
+## Build System
+
+### Diagnostic Artifact Staleness Check
+
+The build system supports a CI-friendly check for stale diagnostic artifacts
+via the `--check-stale` flag:
+
+```bash
+python3 build.py --check-stale              # Exit 1 if any stale artifacts exist
+python3 build.py --check-stale --max-stale-bytes 1024  # Allow up to 1KB of stale artifacts
+```
+
+Stale artifacts are diagnostic files in `diagnostic/` whose commit prefix does
+not match the current `HEAD`. This is useful as a CI gate to prevent outdated
+diagnostics from being included in PRs.
+
+The `--max-stale-bytes` option allows a byte threshold (default 0 = no stale
+artifacts allowed). The check is read-only and does not delete any files.

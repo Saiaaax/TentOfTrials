@@ -776,6 +776,36 @@ def print_summary(results: list[tuple[str, bool, float, str, Optional[str]]]):
           f"{color(str(failed) + ' failed', Colors.RED)}, "
           f"{total_time:.1f}s total")
 
+def check_stale_artifacts(max_bytes: int = 0) -> int:
+    """Check for stale diagnostic artifacts (not matching current commit).
+    Returns 0 if no stale artifacts found (or total size <= max_bytes), 1 otherwise.
+    """
+    commit_id = current_commit_id()
+    stale = []
+    if DIAGNOSTIC_DIR.exists():
+        for path in DIAGNOSTIC_DIR.iterdir():
+            if path.name.startswith("build-"):
+                parts = path.name.replace("build-", "").split(".")
+                artifact_commit = parts[0].split("-")[0] if parts else ""
+                if artifact_commit and artifact_commit != commit_id and len(artifact_commit) == 8:
+                    stale.append(path)
+    if not stale:
+        return 0
+    total_bytes = sum(p.stat().st_size for p in stale if p.is_file())
+    if max_bytes > 0 and total_bytes <= max_bytes:
+        print(f"  {color(f'✓ Stale artifacts: {len(stale)} file(s), {total_bytes}B (within --max-stale-bytes {max_bytes})', Colors.GREEN)}")
+        return 0
+    print(f"  {color(f'✗ Stale diagnostic artifacts found: {len(stale)} file(s), {total_bytes}B', Colors.RED)}")
+    for p in sorted(stale):
+        size = p.stat().st_size if p.is_file() else 0
+        try:
+            display = p.relative_to(ROOT)
+        except ValueError:
+            display = p
+        print(f"    {color(f'{display} ({size}B)', Colors.RED)}")
+    return 1
+
+
 def main():
     parser = argparse.ArgumentParser(
         description="Tent of Trials  -  Multi-Language Build System",
@@ -788,6 +818,7 @@ Examples:
   python3 build.py --clean            Clean all artifacts
   python3 build.py --release          Release build (Rust only)
   python3 build.py --verbose          Verbose output
+  python3 build.py --check-stale      Check for stale diagnostic artifacts (CI gate)
 
 Diagnostic bundle:
   python3 build.py
@@ -814,12 +845,23 @@ Diagnostic bundle:
         "--list", action="store_true",
         help="List available modules and exit",
     )
+    parser.add_argument(
+        "--check-stale", action="store_true",
+        help="Exit non-zero if older diagnostic artifacts exist (CI gate)",
+    )
+    parser.add_argument(
+        "--max-stale-bytes", type=int, default=0,
+        help="Allow up to N bytes of stale artifacts before failing (default: 0 = any stale fails)",
+    )
 
     args = parser.parse_args()
 
     print(f"\n  {color('Tent of Trials: building', Colors.CYAN)}")
     print(f"  Working directory: {ROOT}")
     print()
+
+    if args.check_stale:
+        return check_stale_artifacts(args.max_stale_bytes)
 
     if args.list:
         print(f"  {color('Available modules:', Colors.BOLD)}")
