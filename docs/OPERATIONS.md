@@ -85,6 +85,21 @@ Alerts are sent to PagerDuty and Slack (#ops-alerts channel).
 | DBConnectionPool | Pool exhaustion risk | Critical | 10 minutes |
 | QueueBacklog | Queue depth > 10000 for 5 minutes | Warning | 15 minutes |
 
+### Frontend Telemetry Batching
+
+The frontend telemetry client queues `session_start`, `page_view`, and custom
+events locally before sending them to the configured telemetry endpoint. The
+queue flushes when it reaches the configured batch threshold, on `beforeunload`,
+and when the document visibility changes to `hidden`. A successful flush clears
+only the transmitted batch; later events remain queued for the next threshold or
+manual flush.
+
+Run the dependency-free batch behavior check from the frontend directory:
+
+```sh
+npm run test:telemetry
+```
+
 ## Incident Response
 
 ### Severity Levels
