@@ -33,6 +33,7 @@ Usage:
 import argparse
 import json
 import os
+import platform
 import socket
 import ssl
 import subprocess
@@ -150,48 +151,113 @@ def check_disk_usage(path: str = "/") -> Tuple[str, str, float]:
 
 
 def check_memory_usage() -> Tuple[str, str, float]:
+    system = platform.system()
     try:
-        with open("/proc/meminfo") as f:
-            meminfo = {}
-            for line in f:
-                parts = line.split(":")
-                if len(parts) == 2:
-                    key = parts[0].strip()
-                    value = parts[1].strip().replace(" kB", "")
-                    try:
-                        meminfo[key] = int(value) * 1024
-                    except ValueError:
-                        pass
+        if system == "Linux":
+            with open("/proc/meminfo") as f:
+                meminfo = {}
+                for line in f:
+                    parts = line.split(":")
+                    if len(parts) == 2:
+                        key = parts[0].strip()
+                        value = parts[1].strip().replace(" kB", "")
+                        try:
+                            meminfo[key] = int(value) * 1024
+                        except ValueError:
+                            pass
 
-        total = meminfo.get("MemTotal", 0)
-        available = meminfo.get("MemAvailable", 0)
-        used = total - available
-        pct = (used / total) * 100 if total > 0 else 0
+            total = meminfo.get("MemTotal", 0)
+            available = meminfo.get("MemAvailable", 0)
+            used = total - available
+            pct = (used / total) * 100 if total > 0 else 0
+
+        elif system == "Darwin":
+            # macOS: use sysctl + vm_stat
+            total = int(subprocess.check_output(
+                ["sysctl", "-n", "hw.memsize"], timeout=5
+            ).strip())
+            vm_stat = subprocess.check_output(
+                ["vm_stat"], timeout=5
+            ).decode()
+            # Parse vm_stat output for pages free + speculative
+            pages_free = 0
+            pages_spec = 0
+            page_size = 16384  # default macOS page size
+            for line in vm_stat.splitlines():
+                if "page size of" in line:
+                    parts = line.split()
+                    page_size = int(parts[-1].rstrip('.'))
+                elif line.startswith("Pages free:"):
+                    pages_free = int(line.split(":")[1].strip().rstrip('.'))
+                elif line.startswith("Pages speculative"):
+                    pages_spec = int(line.split(":")[1].strip().rstrip('.'))
+            available = (pages_free + pages_spec) * page_size
+            used = total - available
+            pct = (used / total) * 100 if total > 0 else 0
+
+        elif system == "Windows":
+            # Windows: use ctypes to call GlobalMemoryStatusEx
+            import ctypes
+            kernel32 = ctypes.windll.kernel32
+            class MEMORYSTATUSEX(ctypes.Structure):
+                _fields_ = [
+                    ("dwLength", ctypes.c_ulong),
+                    ("dwMemoryLoad", ctypes.c_ulong),
+                    ("ullTotalPhys", ctypes.c_ulonglong),
+                    ("ullAvailPhys", ctypes.c_ulonglong),
+                    ("ullTotalPageFile", ctypes.c_ulonglong),
+                    ("ullAvailPageFile", ctypes.c_ulonglong),
+                    ("ullTotalVirtual", ctypes.c_ulonglong),
+                    ("ullAvailVirtual", ctypes.c_ulonglong),
+                    ("ullAvailExtendedVirtual", ctypes.c_ulonglong),
+                ]
+            mem_status = MEMORYSTATUSEX()
+            mem_status.dwLength = ctypes.sizeof(MEMORYSTATUSEX)
+            kernel32.GlobalMemoryStatusEx(ctypes.byref(mem_status))
+            total = mem_status.ullTotalPhys
+            available = mem_status.ullAvailPhys
+            used = total - available
+            pct = (used / total) * 100 if total > 0 else 0
+
+        else:
+            # Fallback: try os.sysconf if available (POSIX-like)
+            try:
+                total = os.sysconf("SC_PHYS_PAGES") * os.sysconf("SC_PAGE_SIZE")
+                available = os.sysconf("SC_AVPHYS_PAGES") * os.sysconf("SC_PAGE_SIZE")
+                used = max(0, total - available)
+                pct = (used / total) * 100 if total > 0 else 0
+            except (ValueError, OSError, AttributeError):
+                return "WARNING", f"Cannot check memory on {system}: no fallback available", 0
 
         if pct < MEMORY_THRESHOLD_WARNING:
             return "OK", f"{pct:.1f}% used ({used // (1024**3)}GB/{total // (1024**3)}GB)", pct
         elif pct < MEMORY_THRESHOLD_CRITICAL:
-            return "WARNING", f"{pct:.1f}% used", pct
+            return "WARNING", f"{pct:.1f}% used ({used // (1024**3)}GB/{total // (1024**3)}GB)", pct
         else:
-            return "CRITICAL", f"{pct:.1f}% used", pct
+            return "CRITICAL", f"{pct:.1f}% used ({used // (1024**3)}GB/{total // (1024**3)}GB)", pct
     except Exception as e:
         return "WARNING", f"Cannot check: {e}", 0
 
 
 def check_load_average() -> Tuple[str, str, float]:
     try:
-        with open("/proc/loadavg") as f:
-            parts = f.read().strip().split()
-            load = float(parts[0])
-            cpu_count = os.cpu_count() or 1
-            load_pct = (load / cpu_count) * 100
+        if platform.system() == "Linux":
+            with open("/proc/loadavg") as f:
+                parts = f.read().strip().split()
+                load = float(parts[0])
+        else:
+            # macOS, Windows (via psutil if available), BSD: use os.getloadavg()
+            load = os.getloadavg()[0]
 
-            if load_pct < 70:
-                return "OK", f"Load: {load} ({load_pct:.0f}% of {cpu_count} cores)", load
-            elif load_pct < 90:
-                return "WARNING", f"Load: {load} ({load_pct:.0f}% of {cpu_count} cores)", load
-            else:
-                return "CRITICAL", f"Load: {load} ({load_pct:.0f}% of {cpu_count} cores)", load
+        cpu_count = os.cpu_count() or 1
+        load_pct = (load / cpu_count) * 100
+
+        if load_pct < 70:
+            return "OK", f"Load: {load:.2f} ({load_pct:.0f}% of {cpu_count} cores)", load
+        elif load_pct < 90:
+            return "WARNING", f"Load: {load:.2f} ({load_pct:.0f}% of {cpu_count} cores)", load
+        else:
+            return "CRITICAL", f"Load: {load:.2f} ({load_pct:.0f}% of {cpu_count} cores)", load
     except Exception as e:
         return "WARNING", f"Cannot check: {e}", 0
 
