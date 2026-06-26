@@ -85,6 +85,21 @@ Alerts are sent to PagerDuty and Slack (#ops-alerts channel).
 | DBConnectionPool | Pool exhaustion risk | Critical | 10 minutes |
 | QueueBacklog | Queue depth > 10000 for 5 minutes | Warning | 15 minutes |
 
+### Client-Side Telemetry
+
+The frontend application uses a client-side telemetry service to collect page views, performance metrics (including LCP, FID, CLS web vitals), and error traces.
+
+#### Transport & Batching Behavior
+- **Transport Selection**: Automatically selects the best available transport: **Beacon API** > **Fetch API** > **XHR**.
+- **Batching Threshold**: Events are batched in memory and flushed when the queue reaches **100 events** (or every 30 seconds via flush timer).
+- **Unload Triggers**: Partial batches are flushed immediately when the page becomes hidden (`visibilitychange` event) or when the user navigates away (`beforeunload` event).
+- **Retry & Dropping Logic**: On transmission failure, the batch is re-queued and retried. The service attempts a maximum of **3 flushes** before dropping the oldest events to protect memory capacity (max queue size is 10,000 events).
+
+#### Configuration
+- `VITE_TELEMETRY_ENDPOINT`: Telemetry backend destination URL. If unset, telemetry is disabled.
+- `VITE_TELEMETRY_ENABLED`: Toggle flag (true/false) to enable or disable tracking.
+- `VITE_TELEMETRY_DEBUG`: Enable debug output to the developer console.
+
 ## Incident Response
 
 ### Severity Levels
