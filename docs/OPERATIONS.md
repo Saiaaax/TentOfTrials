@@ -70,6 +70,25 @@ Pre-built Grafana dashboards are available:
 | Business Metrics | Active users, trades, volume | `tot-business-metrics` |
 | Service Health | Per-service health and dependencies | `tot-service-health` |
 
+### Frontend Telemetry Batch Flush Behavior
+
+The frontend telemetry client batches events before sending them to the
+configured `VITE_TELEMETRY_ENDPOINT`. The default batch size is 100 events, and
+the client also flushes queued events when the page is about to unload.
+
+The expected behavior is covered by `frontend/src/services/telemetry.test.ts`:
+
+- A full batch flushes when the queue reaches the configured batch size.
+- A `beforeunload` event flushes queued events even when the queue is below the
+  batch threshold.
+- Events beyond the current batch are preserved in the queue for the next
+  flush.
+- Successful flushes reset the internal flushing state so later batches can be
+  sent normally.
+
+These tests stub browser APIs and the transport layer, so they do not require
+external telemetry services.
+
 ### Alerting Rules
 
 Alerts are sent to PagerDuty and Slack (#ops-alerts channel).
