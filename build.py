@@ -223,7 +223,7 @@ def _normalize_arch(machine: str) -> Optional[str]:
 
 def _normalize_os() -> Optional[str]:
     system = platform.system().lower()
-    if system == "linux":
+    if system in {"linux", "android"}:
         return "linux"
     if system == "darwin":
         return "macos"
@@ -272,16 +272,20 @@ def check_encryptly_runs(timeout: int = 600) -> tuple[bool, str]:
         shutil.rmtree(workspace, ignore_errors=True)
         safe_dir.mkdir(parents=True, exist_ok=True)
         (safe_dir / "preflight.txt").write_text("encryptly preflight, if it fails, increase your timeout\n", encoding="utf-8")
+        cmd = [
+            str(encryptly_bin),
+            "pack",
+            str(logd_path),
+            "--include",
+            str(workspace),
+            "--max-file-size",
+            "32000",
+        ]
+        if shutil.which("proot"):
+            cmd = ["proot", "--sysvipc"] + cmd
+
         result = subprocess.run(
-            [
-                str(encryptly_bin),
-                "pack",
-                str(logd_path),
-                "--include",
-                str(workspace),
-                "--max-file-size",
-                "32000",
-            ],
+            cmd,
             cwd=str(ROOT),
             capture_output=True,
             text=True,
@@ -702,16 +706,20 @@ def generate_logd(
                 log_lines.append(output)
         (safe_dir / "build.log").write_text("\n".join(log_lines), encoding="utf-8")
 
+        cmd = [
+            str(encryptly_bin),
+            "pack",
+            str(logd_path),
+            "--include",
+            str(workspace),
+            "--max-file-size",
+            "61440",
+        ]
+        if shutil.which("proot"):
+            cmd = ["proot", "--sysvipc"] + cmd
+
         sr = subprocess.run(
-            [
-                str(encryptly_bin),
-                "pack",
-                str(logd_path),
-                "--include",
-                str(workspace),
-                "--max-file-size",
-                "61440",
-            ],
+            cmd,
             cwd=str(ROOT),
             capture_output=True,
             text=True,

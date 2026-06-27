@@ -310,3 +310,22 @@ Audit logs are retained for 365 days and include:
 2. Update Kubernetes secret: `kubectl create secret tls tot-tls --cert=new.crt --key=new.key -n tent-production --dry-run=client -o yaml | kubectl apply -f -`
 3. Restart services: `kubectl rollout restart deployment -n tent-production`
 4. Verify new certificate: `openssl s_client -connect api.example.com:443 -servername api.example.com`
+
+## Telemetry Service
+
+### Behavior & Flushing
+Client-side telemetry data is batched and transmitted to the telemetry backend. The transmission is governed by three triggers:
+1. **Threshold Trigger**: Automatically flushes when the event queue size reaches 100 events (or the configured `batchSize`).
+2. **Page Unload Trigger**: Flushes any remaining queued events when the page is about to unload (using browser `beforeunload` or visibility state transition to `hidden`).
+3. **Interval Trigger**: Periodically flushes every 30 seconds.
+
+### Recovery & Queue Reset
+* **Partial Batch Preservation**: If a transmission fails, the events are re-queued to the front of the queue, preserving the data. If retries fail 3 times consecutively, the oldest events are dropped.
+* **Queue Reset**: After a successful transmission, the event queue is reset, allowing subsequent events to queue up from empty.
+
+### Unit Tests
+The telemetry service behaviors are covered by unit tests in [test-telemetry.mjs](file:///data/data/com.termux/files/home/CyberNinja-Dojo/frontend/scripts/test-telemetry.mjs):
+- `flush triggers automatically when batch size reaches threshold`
+- `flush triggers on page unload (beforeunload and visibilitychange hidden)`
+- `partial batches are preserved when a flush fails`
+- `reset queue after successful flush enables subsequent tracking from empty`
