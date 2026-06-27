@@ -85,6 +85,20 @@ Alerts are sent to PagerDuty and Slack (#ops-alerts channel).
 | DBConnectionPool | Pool exhaustion risk | Critical | 10 minutes |
 | QueueBacklog | Queue depth > 10000 for 5 minutes | Warning | 15 minutes |
 
+### Telemetry Collection
+
+The frontend application includes a client-side telemetry service (`frontend/src/services/telemetry.ts`) to monitor and collect client-side performance, errors, and feature usage.
+
+- **Transport Protocols**: Automatically selects the most optimized transport method supported by the browser, in order: `Beacon API` > `Fetch API` > `XHR`.
+- **Batching & Buffering**: To reduce network requests, telemetry events are buffered client-side. A flush is triggered when:
+  1. The event queue reaches the batch threshold (default **100 events**).
+  2. The page is about to unload (triggers flush on `beforeunload` or visibility state changes).
+- **Error Recovery & Durability**:
+  - If a flush request fails (due to network dropouts or backend errors), the telemetry service preserves the unsent batch by prepending it back onto the event queue.
+  - The service retries the flush up to 3 times before dropping the oldest events, preventing infinite queue growth.
+  - After a successful flush, the event buffer and retry statistics are reset.
+- **Verification**: Verified via native Node unit tests in `frontend/scripts/test-telemetry.mjs`.
+
 ## Incident Response
 
 ### Severity Levels
