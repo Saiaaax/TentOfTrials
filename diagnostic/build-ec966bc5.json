@@ -1,0 +1,118 @@
+{
+  "generated_at": "2026-06-27T05:21:38.479498+00:00",
+  "commit": "ec966bc5",
+  "diagnostic_logd": [
+    "diagnostic/build-ec966bc5-part001.logd",
+    "diagnostic/build-ec966bc5-part002.logd"
+  ],
+  "diagnostic_logd_error": null,
+  "message_blocker": null,
+  "chunked": true,
+  "chunk_size_bytes": 41943040,
+  "password": "90b0c22d6d0b8698cada",
+  "decrypt_command": "encryptly unpack diagnostic/build-ec966bc5.logd <outdir> --password 90b0c22d6d0b8698cada",
+  "total_modules": 14,
+  "passed": 10,
+  "failed": 4,
+  "modules": [
+    {
+      "name": "backend",
+      "status": "FAIL",
+      "elapsed_seconds": 0,
+      "artifact": null,
+      "output": "Command not found: [Errno 2] No such file or directory: 'cargo'"
+    },
+    {
+      "name": "frontend",
+      "status": "PASS",
+      "elapsed_seconds": 3.187,
+      "artifact": "/home/sky/.gemini/antigravity/scratch/bounty-solver/workspaces/CyberNinja-Dojo/frontend/dist",
+      "output": "> tent-frontend@0.0.0 build\n> tsc -b && vite build\n\nvite v6.4.3 building for production...\ntransforming...\n\u2713 100 modules transformed.\nrendering chunks...\ncomputing gzip size...\ndist/index.html                   0.62 kB \u2502 gzip:  0.34 kB\ndist/assets/state-BkjSKDbY.js     8.91 kB \u2502 gzip:  3.56 kB \u2502 map:    57.15 kB\ndist/assets/vendor-CREcWLHI.js   48.93 kB \u2502 gzip: 17.40 kB \u2502 map:   481.27 kB\ndist/assets/index-CyxcoTyU.js   231.32 kB \u2502 gzip: 72.91 kB \u2502 map: 1,044.42 kB\n\u2713 built in 968ms"
+    },
+    {
+      "name": "market",
+      "status": "FAIL",
+      "elapsed_seconds": 0,
+      "artifact": null,
+      "output": "Command not found: [Errno 2] No such file or directory: 'go'"
+    },
+    {
+      "name": "frailbox",
+      "status": "PASS",
+      "elapsed_seconds": 0.003,
+      "artifact": "/home/sky/.gemini/antigravity/scratch/bounty-solver/workspaces/CyberNinja-Dojo/frailbox/frailbox",
+      "output": "make: Nothing to be done for 'all'."
+    },
+    {
+      "name": "frailbox-logger",
+      "status": "PASS",
+      "elapsed_seconds": 0.009,
+      "artifact": "/home/sky/.gemini/antigravity/scratch/bounty-solver/workspaces/CyberNinja-Dojo/frailbox/build/tests/test_logger_shutdown",
+      "output": "./build/tests/test_logger_shutdown\nlogger shutdown tests passed"
+    },
+    {
+      "name": "frailbox-connector",
+      "status": "PASS",
+      "elapsed_seconds": 3.209,
+      "artifact": "/home/sky/.gemini/antigravity/scratch/bounty-solver/workspaces/CyberNinja-Dojo/frailbox/build/tests/test_connector_wait_all",
+      "output": "./build/tests/test_connector_wait_all\nconnector wait_all tests passed"
+    },
+    {
+      "name": "engine",
+      "status": "PASS",
+      "elapsed_seconds": 0.068,
+      "artifact": "/home/sky/.gemini/antigravity/scratch/bounty-solver/workspaces/CyberNinja-Dojo/frailbox/engine/build/trial-engine",
+      "output": "[100%] Built target trial-engine"
+    },
+    {
+      "name": "compliance",
+      "status": "FAIL",
+      "elapsed_seconds": 0,
+      "artifact": null,
+      "output": "Command not found: [Errno 2] No such file or directory: 'javac'"
+    },
+    {
+      "name": "v2-market-stream",
+      "status": "PASS",
+      "elapsed_seconds": 0.006,
+      "artifact": null,
+      "output": "Syntax OK"
+    },
+    {
+      "name": "nfc-scanner",
+      "status": "PASS",
+      "elapsed_seconds": 0.001,
+      "artifact": null,
+      "output": ""
+    },
+    {
+      "name": "nfc-scanner-checksums",
+      "status": "PASS",
+      "elapsed_seconds": 0.004,
+      "artifact": null,
+      "output": "nfc scanner checksum tests passed"
+    },
+    {
+      "name": "openapi-haskell",
+      "status": "FAIL",
+      "elapsed_seconds": 0,
+      "artifact": null,
+      "output": "Command not found: [Errno 2] No such file or directory: 'ghc'"
+    },
+    {
+      "name": "openapi-tools",
+      "status": "PASS",
+      "elapsed_seconds": 0.002,
+      "artifact": null,
+      "output": ""
+    },
+    {
+      "name": "legacy-migration",
+      "status": "PASS",
+      "elapsed_seconds": 0.087,
+      "artifact": null,
+      "output": "test_missing_backup_returns_structured_error (__main__.DryRunRestoreValidationTest.test_missing_backup_returns_structured_error) ... ok\ntest_schema_mismatch_returns_structured_error (__main__.DryRunRestoreValidationTest.test_schema_mismatch_returns_structured_error) ... ok\ntest_success_reports_rows_checksums_and_does_not_write_target (__main__.DryRunRestoreValidationTest.test_success_reports_rows_checksums_and_does_not_write_target) ... ok\n\n----------------------------------------------------------------------\nRan 3 tests in 0.001s\n\nOK"
+    }
+  ],
+  "pr_note": "Include the encrypted diagnostic logd artifact(s): diagnostic/build-ec966bc5-part001.logd, diagnostic/build-ec966bc5-part002.logd. The encrypted .logd is the required diagnostic content for PR review; this JSON file is metadata. Maintainers may ask you to remove these diagnostic artifacts before merging."
+}
