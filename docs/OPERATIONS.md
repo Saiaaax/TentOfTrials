@@ -310,3 +310,42 @@ Audit logs are retained for 365 days and include:
 2. Update Kubernetes secret: `kubectl create secret tls tot-tls --cert=new.crt --key=new.key -n tent-production --dry-run=client -o yaml | kubectl apply -f -`
 3. Restart services: `kubectl rollout restart deployment -n tent-production`
 4. Verify new certificate: `openssl s_client -connect api.example.com:443 -servername api.example.com`
+
+## Build System
+
+### CI Gating for Stale Diagnostic Artifacts
+
+The `build.py` script supports a `--check-stale` flag for CI pipelines to detect older diagnostic artifacts that don't match the current commit. This prevents accidental inclusion of outdated diagnostics in PRs.
+
+**Usage:**
+
+```bash
+# Exit 1 if any stale diagnostic artifacts exist
+python3 build.py --check-stale
+
+# Allow up to 1024 bytes of stale artifacts before failing
+python3 build.py --check-stale --max-stale-bytes 1024
+```
+
+**Exit codes:**
+
+| Code | Meaning |
+|------|---------|
+| 0 | No stale artifacts, or stale artifacts within `--max-stale-bytes` threshold |
+| 1 | Stale diagnostic artifacts detected (exceeds threshold) |
+
+The flag is read-only and does not delete any artifacts. It scans `diagnostic/` for build artifacts whose commit hash differs from the current HEAD.
+
+### Telemetry Batch Flush Threshold
+
+The telemetry service (`frontend/src/services/telemetry.ts`) batches events and flushes when the batch size exceeds 100 events or on page unload. Unit tests verify this behavior:
+
+```bash
+node frontend/src/services/telemetry.test.js
+```
+
+The tests cover:
+- Flush triggers at 100 events (batchSize threshold)
+- Flush triggers on page unload (visibilitychange / beforeunload)
+- Partial batches are preserved when flush is triggered mid-batch
+- Event queue resets after successful flush
