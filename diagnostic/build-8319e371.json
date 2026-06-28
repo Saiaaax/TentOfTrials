@@ -1,0 +1,24 @@
+{
+  "generated_at": "2026-06-25T20:05:01.000493+00:00",
+  "commit": "8319e371",
+  "diagnostic_logd": "diagnostic/build-8319e371.logd",
+  "diagnostic_logd_error": null,
+  "message_blocker": null,
+  "chunked": false,
+  "chunk_size_bytes": null,
+  "password": "924f607ea9712d60e71e",
+  "decrypt_command": "encryptly unpack diagnostic/build-8319e371.logd <outdir> --password 924f607ea9712d60e71e",
+  "total_modules": 1,
+  "passed": 1,
+  "failed": 0,
+  "modules": [
+    {
+      "name": "legacy-migration",
+      "status": "PASS",
+      "elapsed_seconds": 0.039,
+      "artifact": null,
+      "output": ""
+    }
+  ],
+  "pr_note": "Include the encrypted diagnostic logd artifact(s): diagnostic/build-8319e371.logd. The encrypted .logd is the required diagnostic content for PR review; this JSON file is metadata. Maintainers may ask you to remove these diagnostic artifacts before merging."
+}
