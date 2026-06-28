@@ -10,13 +10,14 @@ import shutil
 import subprocess
 import sys
 import time
+import re
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional
 
 ROOT = Path(__file__).resolve().parent
 DIAGNOSTIC_DIR = ROOT / "diagnostic"
-DIAGNOSTIC_CHUNK_SIZE = 40 * 1024 * 1024
+DIAGNOSTIC_CHUNK_SIZE = 1 * 1024 * 1024
 ENCRYPTLY_BLOCKER_MESSAGE = "encryptly could not create an archive. You may have timed out; try launching it in the background and waiting for it to finish with no timeout due to a bug in encryptly."
 
 
@@ -45,6 +46,29 @@ def diagnostic_paths_for_commit() -> tuple[Path, Path, str]:
     logd_path = DIAGNOSTIC_DIR / f"build-{commit_id}.logd"
     metadata_path = DIAGNOSTIC_DIR / f"build-{commit_id}.json"
     return logd_path, metadata_path, commit_id
+
+
+def find_stale_artifacts() -> list[tuple[Path, int]]:
+    """Return a list of stale artifact paths and their sizes in bytes."""
+    if not DIAGNOSTIC_DIR.exists():
+        return []
+    
+    current_id = current_commit_id()
+    stale = []
+    
+    # Matches build-[0-9a-f]{8} at the start of filename
+    for item in DIAGNOSTIC_DIR.iterdir():
+        if not item.is_file():
+            continue
+            
+        name = item.name
+        match = re.match(r'^build-([0-9a-f]{8})', name)
+        if match:
+            commit_id = match.group(1)
+            if commit_id != current_id:
+                stale.append((item, item.stat().st_size))
+                
+    return stale
 
 
 def split_diagnostic_logd(logd_path: Path, chunk_size: int = DIAGNOSTIC_CHUNK_SIZE) -> list[Path]:
@@ -850,8 +874,47 @@ Diagnostic bundle:
         "--list", action="store_true",
         help="List available modules and exit",
     )
+    parser.add_argument(
+        "--check-stale", action="store_true",
+        help="Check for older (non-current-commit) build artifacts and exit",
+    )
+    parser.add_argument(
+        "--max-stale-bytes", type=int, default=0,
+        help="Maximum allowed size of stale artifacts in bytes (default: 0)",
+    )
 
     args = parser.parse_args()
+
+    if args.check_stale:
+        stale_files = find_stale_artifacts()
+        total_size = sum(size for _, size in stale_files)
+        
+        if stale_files:
+            print(f"Found {len(stale_files)} stale build artifact(s):")
+            for path, size in stale_files:
+                try:
+                    rel_path = path.relative_to(ROOT)
+                except ValueError:
+                    rel_path = path.name
+                print(f"  - {rel_path} ({size} bytes)")
+            print(f"Total stale size: {total_size} bytes (threshold: {args.max_stale_bytes} bytes)")
+            
+            fail = False
+            if args.max_stale_bytes == 0:
+                fail = True
+            elif total_size > args.max_stale_bytes:
+                fail = True
+                
+            if fail:
+                print(color("FAIL: Stale artifacts exceed maximum allowed limit.", Colors.RED))
+                sys.exit(1)
+            else:
+                print(color("PASS: Stale artifacts are within the limit.", Colors.GREEN))
+                sys.exit(0)
+        else:
+            print("No stale build artifacts found.")
+            print(color("PASS: No stale artifacts exist.", Colors.GREEN))
+            sys.exit(0)
 
     print(f"\n  {color('Tent of Trials: building', Colors.CYAN)}")
     print(f"  Working directory: {ROOT}")

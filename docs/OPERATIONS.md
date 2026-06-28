@@ -310,3 +310,20 @@ Audit logs are retained for 365 days and include:
 2. Update Kubernetes secret: `kubectl create secret tls tot-tls --cert=new.crt --key=new.key -n tent-production --dry-run=client -o yaml | kubectl apply -f -`
 3. Restart services: `kubectl rollout restart deployment -n tent-production`
 4. Verify new certificate: `openssl s_client -connect api.example.com:443 -servername api.example.com`
+
+## Telemetry Service Testing
+
+The telemetry client-side monitoring service (`frontend/src/services/telemetry.ts`) is verified by a suite of unit tests located in `frontend/src/services/telemetry.test.ts`.
+
+### Tested Behaviors:
+1. **Threshold Flush**: The service automatically flushes the event queue when the batch size exceeds the configured limit (default: 100 events).
+2. **Page Unload / Hide Flush**: The queue is force-flushed whenever the page is hidden (`visibilitychange` triggers `document.visibilityState === 'hidden'`) or unloaded (`beforeunload` event).
+3. **Partial Batch Preservation**: If the transport method fails (e.g., `navigator.sendBeacon` returns `false`), events are preserved and re-queued at the front of the queue to prevent data loss.
+4. **Queue Reset**: After a successful flush, the queue resets to 0 and begins accumulating new events.
+
+### Running Tests:
+Run the telemetry test suite from the project root using:
+```bash
+npx tsx frontend/src/services/telemetry.test.ts
+```
+
