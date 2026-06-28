@@ -1,4 +1,4 @@
-# Operations Guide
+﻿# Operations Guide
 
 > WARNING: This operations guide is a LEGACY document. It was last updated
 > when the system was running on bare-metal servers in a colocation facility.
@@ -14,6 +14,21 @@
 > Issues" spreadsheet which is linked from the team's shared drive.
 
 ## Monitoring
+
+### Telemetry Batch Flush Validation
+
+The frontend telemetry service batches client events and flushes them when the
+configured batch threshold is reached or when the page is unloading. Use the
+focused telemetry test command before changing the batching behavior:
+
+```bash
+cd frontend
+npm run test:telemetry
+```
+
+The coverage verifies threshold flush at 100 events, page unload flushing,
+partial batch preservation after a threshold flush, and state reset after a
+successful flush.
 
 ### Health Check Endpoints
 
@@ -310,3 +325,4 @@ Audit logs are retained for 365 days and include:
 2. Update Kubernetes secret: `kubectl create secret tls tot-tls --cert=new.crt --key=new.key -n tent-production --dry-run=client -o yaml | kubectl apply -f -`
 3. Restart services: `kubectl rollout restart deployment -n tent-production`
 4. Verify new certificate: `openssl s_client -connect api.example.com:443 -servername api.example.com`
+
