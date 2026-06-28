@@ -1,0 +1,115 @@
+{
+  "generated_at": "2026-06-28T17:20:34.179072+00:00",
+  "commit": "76940064",
+  "diagnostic_logd": "diagnostic/build-76940064.logd",
+  "diagnostic_logd_error": null,
+  "message_blocker": null,
+  "chunked": false,
+  "chunk_size_bytes": null,
+  "password": "65e5ffa0c792be7d77a2",
+  "decrypt_command": "encryptly unpack diagnostic/build-76940064.logd <outdir> --password 65e5ffa0c792be7d77a2",
+  "total_modules": 14,
+  "passed": 5,
+  "failed": 9,
+  "modules": [
+    {
+      "name": "backend",
+      "status": "FAIL",
+      "elapsed_seconds": 0,
+      "artifact": null,
+      "output": "Command not found: [Errno 2] No such file or directory: 'cargo'"
+    },
+    {
+      "name": "frontend",
+      "status": "PASS",
+      "elapsed_seconds": 53.894,
+      "artifact": "/home/debian/CyberNinja-Dojo-local/frontend/dist",
+      "output": "> tent-frontend@0.0.0 build\n> tsc -b && vite build\n\nvite v6.4.3 building for production...\ntransforming...\n\u2713 100 modules transformed.\nrendering chunks...\ncomputing gzip size...\ndist/index.html                   0.62 kB \u2502 gzip:  0.34 kB\ndist/assets/state-BkjSKDbY.js     8.91 kB \u2502 gzip:  3.55 kB \u2502 map:    57.15 kB\ndist/assets/vendor-CREcWLHI.js   48.93 kB \u2502 gzip: 17.22 kB \u2502 map:   481.27 kB\ndist/assets/index-CyxcoTyU.js   231.32 kB \u2502 gzip: 72.02 kB \u2502 map: 1,044.42 kB\n\u2713 built in 3.89s"
+    },
+    {
+      "name": "market",
+      "status": "FAIL",
+      "elapsed_seconds": 0,
+      "artifact": null,
+      "output": "Command not found: [Errno 2] No such file or directory: 'go'"
+    },
+    {
+      "name": "frailbox",
+      "status": "PASS",
+      "elapsed_seconds": 0.867,
+      "artifact": "/home/debian/CyberNinja-Dojo-local/frailbox/frailbox",
+      "output": "gcc -Wall -Wextra -Wpedantic -std=c2x -O2 -g -D_FORTIFY_SOURCE=3 -fstack-protector-strong -fPIE -Iinclude -MMD -MP -c src/arena.c -o build/src/arena.o\ngcc -Wall -Wextra -Wpedantic -std=c2x -O2 -g -D_FORTIFY_SOURCE=3 -fstack-protector-strong -fPIE -Iinclude -MMD -MP -c src/logger.c -o build/src/logger.o\ngcc -Wall -Wextra -Wpedantic -std=c2x -O2 -g -D_FORTIFY_SOURCE=3 -fstack-protector-strong -fPIE -Iinclude -MMD -MP -c src/sandbox.c -o build/src/sandbox.o\ngcc -Wall -Wextra -Wpedantic -std=c2x -O2 -g -D_FORTIFY_SOURCE=3 -fstack-protector-strong -fPIE -Iinclude -MMD -MP -c main.c -o build/main.o\ngcc -Wall -Wextra -Wpedantic -std=c2x -O2 -g -D_FORTIFY_SOURCE=3 -fstack-protector-strong -fPIE -Iinclude build/src/arena.o build/src/logger.o build/src/sandbox.o build/main.o -o frailbox -pie -z relro -z now\nsrc/arena.c: In function \u2018arena_contains\u2019:\nsrc/arena.c:179:17: warning: comparison of distinct pointer types lacks a cast [-Wcompare-distinct-pointer-types]\n  179 |             ptr < (char *)region->start + region->size) {\n      |                 ^\nsrc/logger.c: In function \u2018log_message\u2019:\nsrc/logger.c:321:5: warning: \u2018__builtin___strncpy_chk\u2019 output may be truncated copying 4095 bytes from a string of length 4095 [-Wstringop-truncation]\n  321 |     strncpy(g_ring_buffer.entries[g_ring_buffer.head], message, MAX_LOG_LINE - 1);\n      |     ^"
+    },
+    {
+      "name": "frailbox-logger",
+      "status": "PASS",
+      "elapsed_seconds": 0.392,
+      "artifact": "/home/debian/CyberNinja-Dojo-local/frailbox/build/tests/test_logger_shutdown",
+      "output": "gcc -Wall -Wextra -Wpedantic -std=c2x -O2 -g -D_FORTIFY_SOURCE=3 -fstack-protector-strong -fPIE -Iinclude tests/test_logger_shutdown.c src/logger.c -o build/tests/test_logger_shutdown -pthread\n./build/tests/test_logger_shutdown\nlogger shutdown tests passed\nsrc/logger.c: In function \u2018log_message\u2019:\nsrc/logger.c:321:5: warning: \u2018__builtin___strncpy_chk\u2019 output may be truncated copying 4095 bytes from a string of length 4095 [-Wstringop-truncation]\n  321 |     strncpy(g_ring_buffer.entries[g_ring_buffer.head], message, MAX_LOG_LINE - 1);\n      |     ^"
+    },
+    {
+      "name": "frailbox-connector",
+      "status": "PASS",
+      "elapsed_seconds": 3.69,
+      "artifact": "/home/debian/CyberNinja-Dojo-local/frailbox/build/tests/test_connector_wait_all",
+      "output": "gcc -Wall -Wextra -Wpedantic -std=c2x -O2 -g -D_FORTIFY_SOURCE=3 -fstack-protector-strong -fPIE -Iinclude -Iconnector tests/test_connector_wait_all.c connector/api.c connector/protocol.c -o build/tests/test_connector_wait_all -pthread\n./build/tests/test_connector_wait_all\nconnector wait_all tests passed\nconnector/api.c:215:27: warning: \u2018internal_health_check\u2019 declared \u2018static\u2019 but never defined [-Wunused-function]\n  215 | static connector_result_t internal_health_check(void);\n      |                           ^~~~~~~~~~~~~~~~~~~~~\nconnector/protocol.c: In function \u2018protocol_header_validate\u2019:\nconnector/protocol.c:209:22: warning: comparison is always false due to limited range of data type [-Wtype-limits]\n  209 |         header->type > PROTOCOL_TYPE_MAX) {\n      |                      ^\nconnector/protocol.c: In function \u2018protocol_type_name\u2019:\nconnector/protocol.c:280:59: warning: comparison is always true due to limited range of data type [-Wtype-limits]\n  280 |             if (type >= PROTOCOL_TYPE_CUSTOM_BASE && type <= PROTOCOL_TYPE_MAX) {\n      |                                                           ^~"
+    },
+    {
+      "name": "engine",
+      "status": "FAIL",
+      "elapsed_seconds": 0,
+      "artifact": null,
+      "output": "Command not found: [Errno 2] No such file or directory: 'cmake'"
+    },
+    {
+      "name": "compliance",
+      "status": "FAIL",
+      "elapsed_seconds": 0,
+      "artifact": null,
+      "output": "Command not found: [Errno 2] No such file or directory: 'javac'"
+    },
+    {
+      "name": "v2-market-stream",
+      "status": "FAIL",
+      "elapsed_seconds": 0,
+      "artifact": null,
+      "output": "Command not found: [Errno 2] No such file or directory: 'ruby'"
+    },
+    {
+      "name": "nfc-scanner",
+      "status": "FAIL",
+      "elapsed_seconds": 0,
+      "artifact": null,
+      "output": "Command not found: [Errno 2] No such file or directory: 'luac'"
+    },
+    {
+      "name": "nfc-scanner-checksums",
+      "status": "FAIL",
+      "elapsed_seconds": 0.004,
+      "artifact": null,
+      "output": "sh: 1: luac: not found"
+    },
+    {
+      "name": "openapi-haskell",
+      "status": "FAIL",
+      "elapsed_seconds": 0,
+      "artifact": null,
+      "output": "Command not found: [Errno 2] No such file or directory: 'ghc'"
+    },
+    {
+      "name": "openapi-tools",
+      "status": "FAIL",
+      "elapsed_seconds": 0,
+      "artifact": null,
+      "output": "Command not found: [Errno 2] No such file or directory: 'luac'"
+    },
+    {
+      "name": "legacy-migration",
+      "status": "PASS",
+      "elapsed_seconds": 0.195,
+      "artifact": null,
+      "output": "test_missing_backup_returns_structured_error (__main__.DryRunRestoreValidationTest.test_missing_backup_returns_structured_error) ... ok\ntest_schema_mismatch_returns_structured_error (__main__.DryRunRestoreValidationTest.test_schema_mismatch_returns_structured_error) ... ok\ntest_success_reports_rows_checksums_and_does_not_write_target (__main__.DryRunRestoreValidationTest.test_success_reports_rows_checksums_and_does_not_write_target) ... ok\n\n----------------------------------------------------------------------\nRan 3 tests in 0.004s\n\nOK"
+    }
+  ],
+  "pr_note": "Include the encrypted diagnostic logd artifact(s): diagnostic/build-76940064.logd. The encrypted .logd is the required diagnostic content for PR review; this JSON file is metadata. Maintainers may ask you to remove these diagnostic artifacts before merging."
+}
