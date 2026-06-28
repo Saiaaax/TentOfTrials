@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Telemetry service for client-side monitoring and analytics.
  *
  * This service collects client-side metrics, errors, and performance data
@@ -422,6 +422,35 @@ export function setSampleRate(rate: number): void {
   state.config.sampleRate = Math.max(0, Math.min(1, rate));
 }
 
+export function __resetTelemetryForTests(config?: Partial<TelemetryConfig>): void {
+  stopFlushTimer();
+  state.events = [];
+  state.sessionId = generateSessionId();
+  state.config = { ...DEFAULT_CONFIG, enabled: true, endpoint: '/telemetry', ...config };
+  state.flushTimer = null;
+  state.isFlushing = false;
+  state.retryCount = 0;
+  state.totalEventsSent = 0;
+  state.totalEventsDropped = 0;
+  state.lastFlushTime = 0;
+  state.flushErrors = 0;
+}
+
+export function __getTelemetryStateForTests() {
+  return {
+    queued: state.events.length,
+    sent: state.totalEventsSent,
+    dropped: state.totalEventsDropped,
+    errors: state.flushErrors,
+    isFlushing: state.isFlushing,
+    batchSize: state.config.batchSize,
+  };
+}
+
+export function __flushTelemetryForTests(): Promise<void> {
+  return flushEvents();
+}
+
 function enqueueEvent(event: TelemetryEvent): void {
   if (state.events.length >= MAX_EVENT_QUEUE_SIZE) {
     state.totalEventsDropped++;
@@ -654,3 +683,4 @@ if (DEFAULT_CONFIG.enabled) {
   initTelemetry();
   initWebVitalsTracking();
 }
+
