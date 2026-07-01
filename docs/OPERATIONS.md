@@ -37,6 +37,13 @@ The health check returns a 200 OK response with a JSON body:
 }
 ```
 
+### Build Diagnostics
+
+Before opening a pull request, run `python3 build.py --check-stale` to verify
+that no diagnostic files from older commits are still sitting in `diagnostic/`.
+The check is read-only. If you need a temporary allowance while cleaning up,
+pass `--max-stale-bytes` with a non-zero byte budget.
+
 ### Prometheus Metrics
 
 Each service exposes Prometheus metrics at `/metrics` on the same port as the

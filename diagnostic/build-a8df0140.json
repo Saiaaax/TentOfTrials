@@ -1,0 +1,115 @@
+{
+  "generated_at": "2026-07-01T00:39:08.599884+00:00",
+  "commit": "a8df0140",
+  "diagnostic_logd": "diagnostic\\build-a8df0140.logd",
+  "diagnostic_logd_error": null,
+  "message_blocker": null,
+  "chunked": false,
+  "chunk_size_bytes": null,
+  "password": "",
+  "decrypt_command": null,
+  "total_modules": 14,
+  "passed": 13,
+  "failed": 1,
+  "modules": [
+    {
+      "name": "backend",
+      "status": "PASS",
+      "elapsed_seconds": 0.009,
+      "artifact": "C:\\Users\\Administrator\\Documents\\Codex\\2026-06-30\\chrome-github-15\\work\\CyberNinja-Dojo-sparse\\backend\\target",
+      "output": ""
+    },
+    {
+      "name": "frontend",
+      "status": "PASS",
+      "elapsed_seconds": 0.019,
+      "artifact": "C:\\Users\\Administrator\\Documents\\Codex\\2026-06-30\\chrome-github-15\\work\\CyberNinja-Dojo-sparse\\frontend\\dist",
+      "output": ""
+    },
+    {
+      "name": "market",
+      "status": "PASS",
+      "elapsed_seconds": 0.008,
+      "artifact": "C:\\Users\\Administrator\\Documents\\Codex\\2026-06-30\\chrome-github-15\\work\\CyberNinja-Dojo-sparse\\market\\market",
+      "output": ""
+    },
+    {
+      "name": "frailbox",
+      "status": "PASS",
+      "elapsed_seconds": 0.008,
+      "artifact": "C:\\Users\\Administrator\\Documents\\Codex\\2026-06-30\\chrome-github-15\\work\\CyberNinja-Dojo-sparse\\frailbox\\frailbox",
+      "output": ""
+    },
+    {
+      "name": "frailbox-logger",
+      "status": "PASS",
+      "elapsed_seconds": 0.008,
+      "artifact": "C:\\Users\\Administrator\\Documents\\Codex\\2026-06-30\\chrome-github-15\\work\\CyberNinja-Dojo-sparse\\frailbox\\build\\tests\\test_logger_shutdown",
+      "output": ""
+    },
+    {
+      "name": "frailbox-connector",
+      "status": "PASS",
+      "elapsed_seconds": 0.008,
+      "artifact": "C:\\Users\\Administrator\\Documents\\Codex\\2026-06-30\\chrome-github-15\\work\\CyberNinja-Dojo-sparse\\frailbox\\build\\tests\\test_connector_wait_all",
+      "output": ""
+    },
+    {
+      "name": "engine",
+      "status": "PASS",
+      "elapsed_seconds": 0.014,
+      "artifact": "C:\\Users\\Administrator\\Documents\\Codex\\2026-06-30\\chrome-github-15\\work\\CyberNinja-Dojo-sparse\\frailbox\\engine\\build\\trial-engine",
+      "output": ""
+    },
+    {
+      "name": "compliance",
+      "status": "PASS",
+      "elapsed_seconds": 0.008,
+      "artifact": "C:\\Users\\Administrator\\Documents\\Codex\\2026-06-30\\chrome-github-15\\work\\CyberNinja-Dojo-sparse\\compliance\\build",
+      "output": ""
+    },
+    {
+      "name": "v2-market-stream",
+      "status": "PASS",
+      "elapsed_seconds": 0.007,
+      "artifact": null,
+      "output": ""
+    },
+    {
+      "name": "nfc-scanner",
+      "status": "PASS",
+      "elapsed_seconds": 0.009,
+      "artifact": null,
+      "output": ""
+    },
+    {
+      "name": "nfc-scanner-checksums",
+      "status": "FAIL",
+      "elapsed_seconds": 0,
+      "artifact": null,
+      "output": "Command not found: [WinError 2] \u7cfb\u7edf\u627e\u4e0d\u5230\u6307\u5b9a\u7684\u6587\u4ef6\u3002"
+    },
+    {
+      "name": "openapi-haskell",
+      "status": "PASS",
+      "elapsed_seconds": 0.007,
+      "artifact": null,
+      "output": ""
+    },
+    {
+      "name": "openapi-tools",
+      "status": "PASS",
+      "elapsed_seconds": 0.008,
+      "artifact": null,
+      "output": ""
+    },
+    {
+      "name": "legacy-migration",
+      "status": "PASS",
+      "elapsed_seconds": 0.008,
+      "artifact": null,
+      "output": ""
+    }
+  ],
+  "pr_note": "Include the encrypted diagnostic logd artifact(s): diagnostic\\build-a8df0140.logd. The encrypted .logd is the required diagnostic content for PR review; this JSON file is metadata. Maintainers may ask you to remove these diagnostic artifacts before merging."
+}
