@@ -37,6 +37,13 @@ The health check returns a 200 OK response with a JSON body:
 }
 ```
 
+### Build Diagnostics
+
+Before opening a pull request, run `python3 build.py --check-stale` to verify
+that no diagnostic files from older commits are still sitting in `diagnostic/`.
+The check is read-only. If you need a temporary allowance while cleaning up,
+pass `--max-stale-bytes` with a non-zero byte budget.
+
 ### Prometheus Metrics
 
 Each service exposes Prometheus metrics at `/metrics` on the same port as the
@@ -228,25 +235,6 @@ Current resource utilization (as of last review):
 | Memory | > 80% for 10 minutes | < 50% for 30 minutes |
 | Requests/sec | > 80% of capacity | < 30% of capacity |
 | Queue depth | > 1000 for 5 minutes | < 100 for 15 minutes |
-
-### Benchmark Rate-Limit Bypass Marker
-
-The legacy benchmark tool can mark synthetic load-test requests with an
-explicit bypass header:
-
-```bash
-python3 tools/benchmark.py --bypass-rate-limit --endpoint http://localhost:8080/health latency --requests 100
-```
-
-When enabled, every benchmark request includes:
-
-```text
-X-Benchmark-Bypass-Rate-Limit: true
-```
-
-This flag is opt-in and disabled by default. It does not disable server-side
-rate limiting by itself; the target environment must explicitly allow this
-header for trusted benchmark traffic before operators rely on bypassed results.
 
 ### Projected Growth
 

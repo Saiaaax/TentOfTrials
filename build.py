@@ -17,7 +17,7 @@ from typing import Optional
 ROOT = Path(__file__).resolve().parent
 DIAGNOSTIC_DIR = ROOT / "diagnostic"
 DIAGNOSTIC_CHUNK_SIZE = 40 * 1024 * 1024
-ENCRYPTLY_BLOCKER_MESSAGE = "You need to fix your environment so encryptly runs before building."
+ENCRYPTLY_BLOCKER_MESSAGE = "encryptly could not create an archive. You may have timed out; try launching it in the background and waiting for it to finish with no timeout due to a bug in encryptly."
 
 
 def current_commit_id() -> str:
@@ -69,6 +69,85 @@ def split_diagnostic_logd(logd_path: Path, chunk_size: int = DIAGNOSTIC_CHUNK_SI
     return chunks
 
 
+def diagnostic_artifact_patterns(commit_id: str) -> list[str]:
+    """Return the diagnostic artifact filename patterns for a specific commit."""
+    return [
+        f"build-{commit_id}.logd",
+        f"build-{commit_id}-part*.logd",
+        f"build-{commit_id}.json",
+        f"build-{commit_id}-metadata.json",
+    ]
+
+
+def tracked_diagnostic_artifacts(commit_id: Optional[str] = None) -> list[Path]:
+    """Return all diagnostic artifacts that belong to a specific commit."""
+    if commit_id is None:
+        commit_id = current_commit_id()
+
+    if not DIAGNOSTIC_DIR.exists():
+        return []
+
+    artifacts: list[Path] = []
+    seen: set[Path] = set()
+    for pattern in diagnostic_artifact_patterns(commit_id):
+        for artifact in DIAGNOSTIC_DIR.glob(pattern):
+            if artifact not in seen:
+                seen.add(artifact)
+                artifacts.append(artifact)
+    return artifacts
+
+
+def stale_diagnostic_artifacts(commit_id: Optional[str] = None) -> list[Path]:
+    """Return diagnostic artifacts that do not belong to the current commit."""
+    if commit_id is None:
+        commit_id = current_commit_id()
+
+    if not DIAGNOSTIC_DIR.exists():
+        return []
+
+    tracked = set(tracked_diagnostic_artifacts(commit_id))
+    stale: list[Path] = []
+    seen: set[Path] = set()
+    for artifact in DIAGNOSTIC_DIR.glob("build-*"):
+        if artifact in seen or artifact in tracked:
+            continue
+        seen.add(artifact)
+        stale.append(artifact)
+    return stale
+
+
+def check_stale_diagnostic_artifacts(max_stale_bytes: int = 0) -> tuple[bool, int, list[Path]]:
+    """Report whether stale diagnostics stay within the configured byte budget."""
+    commit_id = current_commit_id()
+    stale = stale_diagnostic_artifacts(commit_id)
+    stale_bytes = sum(path.stat().st_size for path in stale if path.exists() and path.is_file())
+
+    if not stale:
+        print(f"  {color('OK', Colors.GREEN)} No stale diagnostic artifacts found")
+        return True, 0, []
+
+    print(f"  {color('Stale diagnostic artifacts found', Colors.YELLOW)}")
+    for artifact in stale:
+        size_kb = artifact.stat().st_size / 1024.0
+        print(f"    {artifact.relative_to(ROOT)} ({size_kb:.1f} KiB)")
+    print(f"  Total stale bytes: {stale_bytes}")
+
+    if max_stale_bytes <= 0:
+        print(f"  {color('BLOCKER', Colors.RED)} stale diagnostics must be removed before continuing")
+        return False, stale_bytes, stale
+
+    if stale_bytes > max_stale_bytes:
+        print(
+            f"  {color('BLOCKER', Colors.RED)} stale diagnostics exceed the {max_stale_bytes}-byte budget"
+        )
+        return False, stale_bytes, stale
+
+    print(
+        f"  {color('OK', Colors.GREEN)} stale diagnostics stay within the {max_stale_bytes}-byte budget"
+    )
+    return True, stale_bytes, stale
+
+
 @dataclass
 class Module:
     name: str
@@ -115,6 +194,22 @@ MODULES = [
         build_dir=ROOT / "frailbox" / "frailbox",
     ),
     Module(
+        name="frailbox-logger",
+        language="C",
+        dir=ROOT / "frailbox",
+        build_cmd=["make", "test-logger-shutdown"],
+        clean_cmd=["make", "clean"],
+        build_dir=ROOT / "frailbox" / "build" / "tests" / "test_logger_shutdown",
+    ),
+    Module(
+        name="frailbox-connector",
+        language="C",
+        dir=ROOT / "frailbox",
+        build_cmd=["make", "test-connector-wait-all"],
+        clean_cmd=["make", "clean"],
+        build_dir=ROOT / "frailbox" / "build" / "tests" / "test_connector_wait_all",
+    ),
+    Module(
         name="engine",
         language="C++",
         dir=ROOT / "frailbox" / "engine",
@@ -147,6 +242,18 @@ MODULES = [
         build_dir=None,
     ),
     Module(
+        name="nfc-scanner-checksums",
+        language="Lua",
+        dir=ROOT / "frailbox" / "nfc",
+        build_cmd=[
+            "sh",
+            "-c",
+            "luac -p scanner.lua test_scanner_checksums.lua && lua test_scanner_checksums.lua",
+        ],
+        clean_cmd=["echo", "Lua has no build artifacts to clean"],
+        build_dir=None,
+    ),
+    Module(
         name="openapi-haskell",
         language="Haskell",
         dir=ROOT / "docs" / "openapi",
@@ -162,6 +269,14 @@ MODULES = [
         clean_cmd=["echo", "Nothing to clean"],
         build_dir=None,
     ),
+    Module(
+        name="legacy-migration",
+        language="Python",
+        dir=ROOT / "tools",
+        build_cmd=["python3", "test_legacy_migration_dry_run.py"],
+        clean_cmd=["echo", "Python has no build artifacts to clean"],
+        build_dir=None,
+    ),
 ]
 
 ENCRYPTLY_DIR = ROOT / "tools" / "encryptly"
@@ -169,6 +284,7 @@ ENCRYPTLY_BINARIES = {
     "linux-x64": ENCRYPTLY_DIR / "linux-x64" / "encryptly",
     "linux-arm64": ENCRYPTLY_DIR / "linux-arm64" / "encryptly",
     "macos-arm64": ENCRYPTLY_DIR / "macos-arm64" / "encryptly",
+    "macos-x64": ENCRYPTLY_DIR / "macos-x64" / "encryptly",
     "windows-x64": ENCRYPTLY_DIR / "windows-x64" / "encryptly.exe",
     "windows-arm64": ENCRYPTLY_DIR / "windows-arm64" / "encryptly.exe",
 }
@@ -204,6 +320,16 @@ def detect_encryptly_platform() -> Optional[str]:
 
 
 def get_encryptly_bin() -> Optional[Path]:
+    override = os.environ.get("ENCRYPTLY_BIN")
+    if override:
+        candidate = Path(override)
+        if candidate.exists():
+            return candidate
+
+    path_bin = shutil.which("encryptly")
+    if path_bin:
+        return Path(path_bin)
+
     target = detect_encryptly_platform()
     if target is not None:
         binary = ENCRYPTLY_BINARIES.get(target)
@@ -222,7 +348,7 @@ def encryptly_platform_help() -> str:
     return f"detected {detected}; available: {available}"
 
 
-def check_encryptly_runs(timeout: int = 60) -> tuple[bool, str]:
+def check_encryptly_runs(timeout: int = 600) -> tuple[bool, str]:
     """Verify encryptly can create a diagnostic bundle before doing any build work."""
     encryptly_bin = get_encryptly_bin()
     if encryptly_bin is None:
@@ -234,7 +360,7 @@ def check_encryptly_runs(timeout: int = 60) -> tuple[bool, str]:
     try:
         shutil.rmtree(workspace, ignore_errors=True)
         safe_dir.mkdir(parents=True, exist_ok=True)
-        (safe_dir / "preflight.txt").write_text("encryptly preflight\n", encoding="utf-8")
+        (safe_dir / "preflight.txt").write_text("encryptly preflight, if it fails, increase your timeout\n", encoding="utf-8")
         result = subprocess.run(
             [
                 str(encryptly_bin),
@@ -565,7 +691,7 @@ def commit_diagnostic_artifacts(paths: list[Path], commit_id: str) -> bool:
         return True
 
     add = subprocess.run(
-        ["git", "add", "--", *relpaths],
+        ["git", "add", "--sparse", "--", *relpaths],
         cwd=str(ROOT),
         capture_output=True,
         text=True,
@@ -776,6 +902,11 @@ def print_summary(results: list[tuple[str, bool, float, str, Optional[str]]]):
           f"{total_time:.1f}s total")
 
 def main():
+    if hasattr(sys.stdout, "reconfigure"):
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+    if hasattr(sys.stderr, "reconfigure"):
+        sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+
     parser = argparse.ArgumentParser(
         description="Tent of Trials  -  Multi-Language Build System",
         formatter_class=argparse.RawDescriptionHelpFormatter,
@@ -785,6 +916,9 @@ Examples:
   python3 build.py -m backend         Build only backend
   python3 build.py -m frontend,market Build frontend and market
   python3 build.py --clean            Clean all artifacts
+  python3 build.py --check-stale      Check for stale diagnostic artifacts
+  python3 build.py --check-stale --max-stale-bytes 4096
+                                      Allow a small stale byte budget
   python3 build.py --release          Release build (Rust only)
   python3 build.py --verbose          Verbose output
 
@@ -800,6 +934,14 @@ Diagnostic bundle:
     parser.add_argument(
         "--clean", action="store_true",
         help="Clean build artifacts instead of building",
+    )
+    parser.add_argument(
+        "--check-stale", action="store_true",
+        help="Check for stale diagnostic artifacts and exit",
+    )
+    parser.add_argument(
+        "--max-stale-bytes", type=int, default=0,
+        help="Allow up to this many stale diagnostic bytes when using --check-stale",
     )
     parser.add_argument(
         "--release", action="store_true",
@@ -854,17 +996,17 @@ Diagnostic bundle:
         print(f"  No modules selected.")
         return 0
 
+    if args.check_stale:
+        print(f"\n  {color('Checking stale diagnostic artifacts...', Colors.GRAY)}")
+        stale_ok, _, _ = check_stale_diagnostic_artifacts(args.max_stale_bytes)
+        return 0 if stale_ok else 1
+
     if args.clean:
         print(f"\n  {color('Cleaning build artifacts...', Colors.YELLOW)}")
         for module in selected:
             clean_module(module, args.verbose)
 
-        diagnostic_artifacts = [ROOT / "build.logd"]
-        if DIAGNOSTIC_DIR.exists():
-            diagnostic_artifacts.extend(DIAGNOSTIC_DIR.glob("build-[0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f].logd"))
-            diagnostic_artifacts.extend(DIAGNOSTIC_DIR.glob("build-[0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f]-part*.logd"))
-            diagnostic_artifacts.extend(DIAGNOSTIC_DIR.glob("build-[0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f].json"))
-            diagnostic_artifacts.extend(DIAGNOSTIC_DIR.glob("build-[0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f]-metadata.json"))
+        diagnostic_artifacts = [ROOT / "build.logd", *tracked_diagnostic_artifacts()]
         for artifact in diagnostic_artifacts:
             if artifact.exists():
                 if artifact.is_dir():
